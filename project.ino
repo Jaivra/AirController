@@ -93,13 +93,13 @@ Scheduler taskManager;
  */
 
 void temperatureTask();
-Task t1(2000, TASK_FOREVER, &temperatureTask, &taskManager, true);
+Task t1(1000 * 60 * 3, TASK_FOREVER, &temperatureTask, &taskManager, true);
 
 void sendTemperatureTask();
-Task t2(10000, TASK_FOREVER, &sendTemperatureTask, &taskManager, true);
+Task t2(1000 * 60 * 5, TASK_FOREVER, &sendTemperatureTask, &taskManager, true);
 
 void MQTTLoopTask();
-Task t3(1000, TASK_FOREVER, &MQTTLoopTask, &taskManager, true);
+Task t3(2000, TASK_FOREVER, &MQTTLoopTask, &taskManager, true);
 /*
  * TemperatureTask and functions
  */
