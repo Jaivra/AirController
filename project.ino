@@ -28,8 +28,24 @@ static const uint8_t D10  = 1;
 
 
 /*
- * 
+ * WIFI/MQTT settings
  */
+const char* ssid = "OnePlus5";
+const char* password = "Myesp8266";
+const char* mqtt_server = "mqtt.atrent.it";
+
+WiFiClient espClient;
+
+
+/*
+ * MQTT settings 
+ */
+
+const char* temperatureTopic = "Valerio/roomTemperature";
+const char* humidityTopic = "Valerio/roomHumidity";
+const char* connectionTopic = "Valerio/connected";
+
+PubSubClient client(espClient);
 
 /*
  * IR settings
@@ -61,6 +77,8 @@ int RECV_PIN = 12;
  */
 
 DHT dht(D2, DHT22); //Inizializza oggetto chiamato "dht", parametri: pin a cui è connesso il sensore, tipo di dht 11/22
+float temperature;
+float humidity;
 
 /*
  * TaskScheduler var
@@ -69,46 +87,135 @@ DHT dht(D2, DHT22); //Inizializza oggetto chiamato "dht", parametri: pin a cui �
 Scheduler taskManager;
 
 
+
 /*
  * Task declaration
  */
 
-void temperature();
-Task t1(2000, TASK_FOREVER, &temperature, &taskManager, true);
+void temperatureTask();
+Task t1(2000, TASK_FOREVER, &temperatureTask, &taskManager, true);
 
+void sendTemperatureTask();
+Task t2(10000, TASK_FOREVER, &sendTemperatureTask, &taskManager, true);
 
+void MQTTLoopTask();
+Task t3(1000, TASK_FOREVER, &MQTTLoopTask, &taskManager, true);
 /*
- * Task implementation
+ * TemperatureTask and functions
  */
  
-void temperature() {
-  float humidity = dht.readHumidity();
-  float temperature = dht.readTemperature();
+byte temperatureTaskLog = false;
+void temperatureTask() {
+  humidity = dht.readHumidity();
+  temperature = dht.readTemperature();
   //Stampa umidità e temperatura tramite monitor seriale
-  Serial.print("Umidità: ");
-  Serial.print(humidity);
-  Serial.print(" %, Temp: ");
-  Serial.print(temperature);
-  Serial.println(" Celsius");
+  if (temperatureTaskLog) {
+    Serial.print("Umidità: ");
+    Serial.print(humidity);
+    Serial.print(" %, Temp: ");
+    Serial.print(temperature);
+    Serial.println(" Celsius");
+  }
 }
 
 
 
 /*
+ * MQTTTask and functions
+ */
+
+const byte sendTemperatureTaskLog = true;
+void sendTemperatureTask() {
+  char data[8];
+  
+  dtostrf(temperature, 6, 2, data);
+  client.publish(temperatureTopic, data);
+
+  dtostrf(humidity, 6, 2, data);
+  client.publish(humidityTopic, data);
+
+  if (sendTemperatureTaskLog) {
+    Serial.print("Publish message: ");
+    Serial.println(temperature);
+  }
+}
+
+
+const byte MQTTLoopTaskLog = true;
+void MQTTLoopTask() {
+  if (!client.connected()) {
+    reconnect();
+  }
+  client.loop();
+}
+
+void reconnect() {
+  while (!client.connected()) {
+    if (MQTTLoopTaskLog)
+      Serial.print("Attempting MQTT connection...");
+    
+    String clientId = "ValerioESP8266Client-";
+    clientId += String(random(0xffff), HEX);
+    
+    if (client.connect(clientId.c_str())) {
+      if (MQTTLoopTaskLog)
+        Serial.println("connected");
+
+      client.publish(connectionTopic, "true");
+      
+      //client.subscribe("inTopic");
+    } else {
+      if (MQTTLoopTaskLog) {
+        Serial.print("failed, rc=");
+        Serial.print(client.state());
+        Serial.println(" try again in 5 seconds");
+      }
+      delay(5000);
+    }
+  }
+}
+
+ 
+/*
  * INIT
  */
 
+void setup_wifi() {
+  delay(10);
+  // We start by connecting to a WiFi network
+  Serial.println();
+  Serial.print("Connecting to ");
+  Serial.println(ssid);
+
+  WiFi.begin(ssid, password);
+
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+
+  randomSeed(micros());
+
+  Serial.println("");
+  Serial.println("WiFi connected");
+  Serial.println("IP address: ");
+  Serial.println(WiFi.localIP());
+}
+
  
 void initObjects() {
+  setup_wifi();
+  client.setServer(mqtt_server, 1883);
   dht.begin();
 }
 
 void setup() {
   Serial.begin(9600);
+  initObjects();
 }
 
 void loop() {
   taskManager.execute();
- 
 
+  
 }
