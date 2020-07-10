@@ -109,19 +109,19 @@ HTTPClient http;
  */
 
 void measureRoomTemperatureTask();
-Task t1(1000 * 3, TASK_FOREVER, &measureRoomTemperatureTask, &taskManager, true);
+Task t1(1000 * 60 * 3, TASK_FOREVER, &measureRoomTemperatureTask, &taskManager, true);
 
 void sendRoomTemperatureTask();
-Task t2(1000 * 5, TASK_FOREVER, &sendRoomTemperatureTask, &taskManager, true);
+Task t2(1000 * 60 * 5, TASK_FOREVER, &sendRoomTemperatureTask, &taskManager, true);
 
 void measureSimulateOutTemperatureTask();
-Task t3(1000 * 3, TASK_FOREVER, &measureSimulateOutTemperatureTask, &taskManager, true);
+Task t3(1000 * 60 * 3, TASK_FOREVER, &measureSimulateOutTemperatureTask, &taskManager, true);
 
 void sendOutTemperatureTask();
-Task t4(1000 * 5, TASK_FOREVER, &sendOutTemperatureTask, &taskManager, true);
+Task t4(1000 * 60 * 5, TASK_FOREVER, &sendOutTemperatureTask, &taskManager, true);
 
 void MQTTLoopTask();
-Task t5(1000, TASK_FOREVER, &MQTTLoopTask, &taskManager, true);
+Task t5(2000, TASK_FOREVER, &MQTTLoopTask, &taskManager, true);
 
 
 /*
