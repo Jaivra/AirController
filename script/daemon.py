@@ -48,24 +48,31 @@ def on_connect(client, userdata, flags, rc):
 
 
 def on_message(client, userdata, msg):
-    global room_measure, out_measure
+    global room_measure, out_measure, row_count
 
     topic = msg.topic
-    if out_measure.has_sub_topic(topic):
-        out_measure.update_measure(topic.split('/')[-1], float(msg.payload.decode("utf-8")))
-    elif room_measure.has_sub_topic(topic):
+    #print("Arrive:", topic)
+    if room_measure.has_sub_topic(topic):
         room_measure.update_measure(topic.split('/')[-1], float(msg.payload.decode("utf-8")))
-        if room_measure.has_data() and out_measure.has_data():
+    elif out_measure.has_sub_topic(topic):
+        sub_topic = topic.split('/')[-1]
+        out_measure.update_measure(sub_topic, float(msg.payload.decode("utf-8")))
+        if room_measure.has_data() and out_measure.has_data() and sub_topic == "heatIndex":
+            #print("****", "inserimento")
+            row_count += 1
             dt = datetime.datetime.now()
             now = dt.strftime("%d/%m/%Y,%H:%M")
             row = "{},{},{}\n".format(now, room_measure.to_csv(), out_measure.to_csv())
             #print("****", row)
             f.write(row)
             f.flush()
+            #print("{} righe nel dataset".format(row_count))
 
 f = open("data.csv", "a")
 out_measure = Measure("valerio/out")
 room_measure = Measure("valerio/room")
+
+row_count = 0
 
 mqtt_client = mqtt.Client()
 mqtt_client.on_connect = on_connect
@@ -77,4 +84,9 @@ mqtt_client.connect("mqtt.atrent.it", 1883, 60 * 10)
 # handles reconnecting.
 # Other loop*() functions are available that give a threaded interface and a
 # manual interface.
+
+dt = datetime.datetime.now()
+now = dt.strftime("%d/%m/%Y,%H:%M")
+print("Daemon started at:", now)
+
 mqtt_client.loop_forever()
