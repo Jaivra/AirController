@@ -5,13 +5,12 @@
 #include <DHT.h>
 #include <ESP8266WiFi.h>
 #include <PubSubClient.h>
+#include <ESP8266HTTPClient.h>
 
 
 /*
  * PIN MAPPING
  */
-
-
 
 static const uint8_t D0   = 16;
 static const uint8_t D1   = 5;
@@ -30,26 +29,32 @@ static const uint8_t D10  = 1;
 /*
  * WIFI/MQTT settings
  */
-const char* ssid = "OnePlus5";
-const char* password = "Myesp8266";
+
+const char* ssid = "DownStair2.4";
+const char* password = "MyEsp8266_&19!";
 const char* mqtt_server = "mqtt.atrent.it";
 
 WiFiClient espClient;
+
 
 
 /*
  * MQTT settings 
  */
 
-const char* temperatureTopic = "Valerio/roomTemperature";
-const char* humidityTopic = "Valerio/roomHumidity";
-const char* connectionTopic = "Valerio/connected";
+const char* temperatureTopic = "valerio/room/temperature";
+const char* humidityTopic = "valerio/room/humidity";
+const char* heatIndexTopic = "valerio/room/heatIndex";
+const char* connectionTopic = "valerio/connected";
 
 PubSubClient client(espClient);
+
+
 
 /*
  * IR settings
  */
+
 const uint16_t kIrLed = 4;  // ESP8266 GPIO pin to use. Recommended: 4 (D2).
 
 IRsend irsend(kIrLed);  // Set the GPIO to be used to sending the message.
@@ -73,59 +78,80 @@ int RECV_PIN = 12;
 
 
 /*
- * DHT settings
+ * Temperature settings
  */
 
 DHT dht(D2, DHT22); //Inizializza oggetto chiamato "dht", parametri: pin a cui è connesso il sensore, tipo di dht 11/22
 float temperature;
 float humidity;
+float heatIndex;
+
 
 /*
- * TaskScheduler var
+ * Other var
  */
 
 Scheduler taskManager;
-
+HTTPClient http;
 
 
 /*
  * Task declaration
  */
 
-void temperatureTask();
-Task t1(1000 * 60 * 3, TASK_FOREVER, &temperatureTask, &taskManager, true);
+void roomTemperatureTask();
+Task t1(1000 * 5, TASK_FOREVER, &roomTemperatureTask, &taskManager, true);
 
-void sendTemperatureTask();
-Task t2(1000 * 60 * 5, TASK_FOREVER, &sendTemperatureTask, &taskManager, true);
+void sendRoomTemperatureTask();
+Task t2(1000 * 10, TASK_FOREVER, &sendRoomTemperatureTask, &taskManager, true);
+
+void simulateOutTemperatureTask();
+Task t3(5000, TASK_FOREVER, &simulateOutTemperatureTask, &taskManager, true);
 
 void MQTTLoopTask();
-Task t3(2000, TASK_FOREVER, &MQTTLoopTask, &taskManager, true);
+Task t4(1000, TASK_FOREVER, &MQTTLoopTask, &taskManager, true);
+
+
 /*
  * TemperatureTask and functions
  */
  
-byte temperatureTaskLog = false;
-void temperatureTask() {
+byte roomTemperatureTaskLog = false;
+void roomTemperatureTask() {
   humidity = dht.readHumidity();
   temperature = dht.readTemperature();
+  heatIndex = dht.computeHeatIndex(temperature, humidity, false);
   //Stampa umidità e temperatura tramite monitor seriale
-  if (temperatureTaskLog) {
+  if (roomTemperatureTaskLog) {
     Serial.print("Umidità: ");
     Serial.print(humidity);
     Serial.print(" %, Temp: ");
     Serial.print(temperature);
     Serial.println(" Celsius");
+    Serial.print(heatIndex);
+    Serial.println(" Celsius");
+    
   }
 }
 
-
+void simulateOutTemperatureTask() {
+  http.begin("http://api.openweathermap.org/data/2.5/weather?lat=45.469706&units=metric&lon=9.237468&appid=4cdeae287c5efcdb83c9503436abf8d5");
+  int httpCode = http.GET();
+ 
+  if (httpCode > 0) { //Check the returning code
+    String payload = http.getString();   //Get the request response payload
+    Serial.println(payload);                     //Print the response payload
+  }
+ 
+  http.end();   //Close connection
+}
 
 /*
  * MQTTTask and functions
  */
 
-const byte sendTemperatureTaskLog = true;
-void sendTemperatureTask() {
+const byte sendRoomTemperatureTaskLog = false;
+void sendRoomTemperatureTask() {
   char data[8];
   
   dtostrf(temperature, 6, 2, data);
@@ -134,12 +160,14 @@ void sendTemperatureTask() {
   dtostrf(humidity, 6, 2, data);
   client.publish(humidityTopic, data);
 
-  if (sendTemperatureTaskLog) {
+  dtostrf(heatIndex, 6, 2, data);
+  client.publish(heatIndexTopic, data);
+
+  if (sendRoomTemperatureTaskLog) {
     Serial.print("Publish message: ");
     Serial.println(temperature);
   }
 }
-
 
 const byte MQTTLoopTaskLog = true;
 void MQTTLoopTask() {
@@ -175,6 +203,7 @@ void reconnect() {
   }
 }
 
+
  
 /*
  * INIT
@@ -202,7 +231,6 @@ void setup_wifi() {
   Serial.println(WiFi.localIP());
 }
 
- 
 void initObjects() {
   setup_wifi();
   client.setServer(mqtt_server, 1883);
@@ -215,7 +243,5 @@ void setup() {
 }
 
 void loop() {
-  taskManager.execute();
-
-  
+  taskManager.execute();  
 }
