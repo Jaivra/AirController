@@ -6,6 +6,7 @@
 #include <ESP8266WiFi.h>
 #include <PubSubClient.h>
 #include <ESP8266HTTPClient.h>
+#include <ArduinoJson.h>
 
 
 /*
@@ -42,10 +43,15 @@ WiFiClient espClient;
  * MQTT settings 
  */
 
-const char* temperatureTopic = "valerio/room/temperature";
-const char* humidityTopic = "valerio/room/humidity";
-const char* heatIndexTopic = "valerio/room/heatIndex";
 const char* connectionTopic = "valerio/connected";
+
+const char* roomTemperatureTopic = "valerio/room/temperature";
+const char* roomHumidityTopic = "valerio/room/humidity";
+const char* roomHeatIndexTopic = "valerio/room/heatIndex";
+
+const char* outTemperatureTopic = "valerio/out/temperature";
+const char* outHumidityTopic = "valerio/out/humidity";
+const char* outHeatIndexTopic = "valerio/out/heatIndex";
 
 PubSubClient client(espClient);
 
@@ -82,10 +88,13 @@ int RECV_PIN = 12;
  */
 
 DHT dht(D2, DHT22); //Inizializza oggetto chiamato "dht", parametri: pin a cui è connesso il sensore, tipo di dht 11/22
-float temperature;
-float humidity;
-float heatIndex;
+float roomTemperature;
+float roomHumidity;
+float roomHeatIndex;
 
+float outTemperature;
+float outHumidity;
+float outHeatIndex;
 
 /*
  * Other var
@@ -99,48 +108,87 @@ HTTPClient http;
  * Task declaration
  */
 
-void roomTemperatureTask();
-Task t1(1000 * 5, TASK_FOREVER, &roomTemperatureTask, &taskManager, true);
+void measureRoomTemperatureTask();
+Task t1(1000 * 3, TASK_FOREVER, &measureRoomTemperatureTask, &taskManager, true);
 
 void sendRoomTemperatureTask();
-Task t2(1000 * 10, TASK_FOREVER, &sendRoomTemperatureTask, &taskManager, true);
+Task t2(1000 * 5, TASK_FOREVER, &sendRoomTemperatureTask, &taskManager, true);
 
-void simulateOutTemperatureTask();
-Task t3(5000, TASK_FOREVER, &simulateOutTemperatureTask, &taskManager, true);
+void measureSimulateOutTemperatureTask();
+Task t3(1000 * 3, TASK_FOREVER, &measureSimulateOutTemperatureTask, &taskManager, true);
+
+void sendOutTemperatureTask();
+Task t4(1000 * 5, TASK_FOREVER, &sendOutTemperatureTask, &taskManager, true);
 
 void MQTTLoopTask();
-Task t4(1000, TASK_FOREVER, &MQTTLoopTask, &taskManager, true);
+Task t5(1000, TASK_FOREVER, &MQTTLoopTask, &taskManager, true);
 
 
 /*
  * TemperatureTask and functions
  */
  
-byte roomTemperatureTaskLog = false;
-void roomTemperatureTask() {
-  humidity = dht.readHumidity();
-  temperature = dht.readTemperature();
-  heatIndex = dht.computeHeatIndex(temperature, humidity, false);
+byte measureRoomTemperatureTaskLog = false;
+void measureRoomTemperatureTask() {
+  roomHumidity = dht.readHumidity();
+  roomTemperature = dht.readTemperature();
+  roomHeatIndex = dht.computeHeatIndex(roomTemperature, roomHumidity, false);
   //Stampa umidità e temperatura tramite monitor seriale
-  if (roomTemperatureTaskLog) {
-    Serial.print("Umidità: ");
-    Serial.print(humidity);
-    Serial.print(" %, Temp: ");
-    Serial.print(temperature);
+  if (measureRoomTemperatureTask) {
+    Serial.print("Umidità della stanza: ");
+    Serial.print(roomHumidity);
+    Serial.println(" %");
+    
+    Serial.print("Temperatura della stanza: ");
+    Serial.print(roomTemperature);
     Serial.println(" Celsius");
-    Serial.print(heatIndex);
+    
+    Serial.print("Indice di calore: ");
+    Serial.print(roomHeatIndex);
     Serial.println(" Celsius");
     
   }
 }
 
-void simulateOutTemperatureTask() {
+byte measureSimulateOutTemperatureTaskLog = false;
+void measureSimulateOutTemperatureTask() {
   http.begin("http://api.openweathermap.org/data/2.5/weather?lat=45.469706&units=metric&lon=9.237468&appid=4cdeae287c5efcdb83c9503436abf8d5");
   int httpCode = http.GET();
- 
+
   if (httpCode > 0) { //Check the returning code
-    String payload = http.getString();   //Get the request response payload
-    Serial.println(payload);                     //Print the response payload
+    
+    StaticJsonDocument<64> filter;
+    filter["main"]["temp"] = true;
+    filter["main"]["humidity"] = true;
+    
+    String json = http.getString();   //Get the request response payload
+
+    // https://arduinojson.org/v6/assistant/
+    const size_t capacity = JSON_ARRAY_SIZE(1) + JSON_OBJECT_SIZE(1) + 2*JSON_OBJECT_SIZE(2) + JSON_OBJECT_SIZE(4) + JSON_OBJECT_SIZE(5) + JSON_OBJECT_SIZE(6) + JSON_OBJECT_SIZE(13);
+    DynamicJsonDocument doc(capacity);
+    deserializeJson(doc, json);
+    JsonObject root = doc["main"].as<JsonObject>();
+    
+
+    outHumidity= root["humidity"].as<float>();
+    outTemperature = root["temp"].as<float>();
+    outHeatIndex = dht.computeHeatIndex(outTemperature, outHumidity, false);
+
+    if (measureSimulateOutTemperatureTaskLog) {
+      //serializeJsonPretty(doc, Serial);
+      Serial.print("Umidità out: ");
+      Serial.print(outHumidity);
+      Serial.println(" %");
+    
+      Serial.print("Temperatura out: ");
+      Serial.print(outTemperature);
+      Serial.println(" Celsius");
+    
+      Serial.print("Indice di calore out: ");
+      Serial.print(outHeatIndex);
+      Serial.println(" Celsius");
+    
+    }
   }
  
   http.end();   //Close connection
@@ -154,18 +202,38 @@ const byte sendRoomTemperatureTaskLog = false;
 void sendRoomTemperatureTask() {
   char data[8];
   
-  dtostrf(temperature, 6, 2, data);
-  client.publish(temperatureTopic, data);
+  dtostrf(roomTemperature, 6, 2, data);
+  client.publish(roomTemperatureTopic, data);
 
-  dtostrf(humidity, 6, 2, data);
-  client.publish(humidityTopic, data);
+  dtostrf(roomHumidity, 6, 2, data);
+  client.publish(roomHumidityTopic, data);
 
-  dtostrf(heatIndex, 6, 2, data);
-  client.publish(heatIndexTopic, data);
+  dtostrf(roomHeatIndex, 6, 2, data);
+  client.publish(roomHeatIndexTopic, data);
 
   if (sendRoomTemperatureTaskLog) {
-    Serial.print("Publish message: ");
-    Serial.println(temperature);
+    Serial.print("Publish message roomHeatIndex: ");
+    Serial.println(roomHeatIndex);
+  }
+}
+
+
+const byte sendOutTemperatureTaskLog = false;
+void sendOutTemperatureTask() {
+  char data[8];
+  
+  dtostrf(outTemperature, 6, 2, data);
+  client.publish(outTemperatureTopic, data);
+
+  dtostrf(outHumidity, 6, 2, data);
+  client.publish(outHumidityTopic, data);
+
+  dtostrf(outHeatIndex, 6, 2, data);
+  client.publish(outHeatIndexTopic, data);
+
+  if (sendOutTemperatureTaskLog) {
+    Serial.print("Publish message outHeatIndex: ");
+    Serial.println(roomHeatIndex);
   }
 }
 
