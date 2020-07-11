@@ -1,6 +1,7 @@
 #include <Arduino.h>
 #include <IRremoteESP8266.h>
 #include <IRsend.h>
+#include <IRrecv.h>
 #include <TaskScheduler.h>
 #include <DHT.h>
 #include <ESP8266WiFi.h>
@@ -61,9 +62,14 @@ PubSubClient client(espClient);
  * IR settings
  */
 
-const uint16_t kIrLed = 4;  // ESP8266 GPIO pin to use. Recommended: 4 (D2).
 
-IRsend irsend(kIrLed);  // Set the GPIO to be used to sending the message.
+const int RECV_IR_PIN = D6;
+const int SEND_IR_PIN = D5;    
+
+IRrecv irrecv(RECV_IR_PIN);
+decode_results results;
+
+IRsend irsend(SEND_IR_PIN);  // Set the GPIO to be used to sending the message.
 
 int CODES[8] = {
   0x8808440,
@@ -79,7 +85,6 @@ int CODES[8] = {
 int POWER_ON = 0x880064A;
 int POWER_OFF = 0x88C0051;
 
-int RECV_PIN = 12;    
 
 
 
@@ -87,7 +92,9 @@ int RECV_PIN = 12;
  * Temperature settings
  */
 
-DHT dht(D2, DHT22); //Inizializza oggetto chiamato "dht", parametri: pin a cui è connesso il sensore, tipo di dht 11/22
+const int RECV_TEMPERATURE_PIN = D2;
+
+DHT dht(RECV_TEMPERATURE_PIN, DHT22); //Inizializza oggetto chiamato "dht", parametri: pin a cui è connesso il sensore, tipo di dht 11/22
 float roomTemperature;
 float roomHumidity;
 float roomHeatIndex;
@@ -107,27 +114,50 @@ HTTPClient http;
 /*
  * Task declaration
  */
+void taskTest();
+Task t0(1000, TASK_FOREVER, &taskTest, &taskManager, true);
 
 void measureRoomTemperatureTask();
-Task t1(1000 * 60 * 2, TASK_FOREVER, &measureRoomTemperatureTask, &taskManager, true);
+Task t1(1000 * 5, TASK_FOREVER, &measureRoomTemperatureTask, &taskManager, false);
 
 void sendRoomTemperatureTask();
-Task t2(1000 * 60 * 4, TASK_FOREVER, &sendRoomTemperatureTask, &taskManager, true);
+Task t2(1000 * 10, TASK_FOREVER, &sendRoomTemperatureTask, &taskManager, false);
 
 void measureSimulateOutTemperatureTask();
-Task t3(1000 * 60 * 2, TASK_FOREVER, &measureSimulateOutTemperatureTask, &taskManager, true);
+Task t3(1000 * 5, TASK_FOREVER, &measureSimulateOutTemperatureTask, &taskManager, false);
 
 void sendOutTemperatureTask();
-Task t4(1000 * 60 * 4, TASK_FOREVER, &sendOutTemperatureTask, &taskManager, true);
+Task t4(1000 * 10, TASK_FOREVER, &sendOutTemperatureTask, &taskManager, false);
 
 void MQTTLoopTask();
-Task t5(1000 * 2, TASK_FOREVER, &MQTTLoopTask, &taskManager, true);
+Task t5(1000 * 2, TASK_FOREVER, &MQTTLoopTask, &taskManager, false);
+
+void IRRecvTask();
+Task t6(300, TASK_FOREVER, &IRRecvTask, &taskManager, false);
+
+void IRSendTask();
+Task t7(300, TASK_FOREVER, &IRSendTask, &taskManager, false);
 
 
 /*
+ * 
+ */
+
+
+void taskTest() {
+  float temp = 28.5;
+  float hum = 87;
+  float B=(log(hum/100)+((17.27*temp)/(237.3+temp)))/17.27; // value of "B", the intermediate dimentionless parameter has been calculated.
+  float dew=(237.3*B)/(1-B); // The value of dew point has been calculated
+  float humidex=temp+0.5555*(6.11*exp(5417.753*(1/273.16-1/(273.15+dew)))-10); // the value of HUMIDEX has been claculated.
+  Serial.print("Humidex: ");
+  Serial.println(humidex);
+  
+}
+/*
  * TemperatureTask and functions
  */
- 
+
 byte measureRoomTemperatureTaskLog = false;
 void measureRoomTemperatureTask() {
   roomHumidity = dht.readHumidity();
@@ -193,6 +223,15 @@ void measureSimulateOutTemperatureTask() {
  
   http.end();   //Close connection
 }
+
+// https://create.arduino.cc/projecthub/somenjana/sensing-the-comfort-level-of-atmosphere-using-humidex-3ee0df
+float calcHumidex(float temperature, float humidity) {
+  float B=(log(humidity/100)+((17.27*temperature)/(237.3+temperature)))/17.27; // value of "B", the intermediate dimentionless parameter has been calculated.
+  float dew=(237.3*B)/(1-B); // The value of dew point has been calculated
+  float humidex=temperature+0.5555*(6.11*exp(5417.753*(1/273.16-1/(273.15+dew)))-10); // the value of HUMIDEX has been claculated.
+  return humidex;
+}
+
 
 /*
  * MQTTTask and functions
@@ -272,7 +311,27 @@ void reconnect() {
 }
 
 
- 
+/*
+ * IRTask
+ */
+
+void IRRecvTask() {
+ if (irrecv.decode(&results)){
+    int value = results.value;
+    Serial.println(value, HEX);
+    irrecv.resume();
+    Serial.println();
+  }
+  else {
+    Serial.println("PASSATO");
+  }
+}
+
+
+void IRSendTask() {
+  irsend.sendNEC(0x880064A, 28);
+}
+
 /*
  * INIT
  */
@@ -301,8 +360,14 @@ void setup_wifi() {
 
 void initObjects() {
   setup_wifi();
+  
   client.setServer(mqtt_server, 1883);
+  
   dht.begin();
+
+  irrecv.enableIRIn();
+  
+  irsend.begin();
 }
 
 void setup() {
