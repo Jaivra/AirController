@@ -145,13 +145,15 @@ Task t7(300, TASK_FOREVER, &IRSendTask, &taskManager, false);
 
 
 void taskTest() {
-  float temp = 28.5;
-  float hum = 87;
-  float B=(log(hum/100)+((17.27*temp)/(237.3+temp)))/17.27; // value of "B", the intermediate dimentionless parameter has been calculated.
-  float dew=(237.3*B)/(1-B); // The value of dew point has been calculated
-  float humidex=temp+0.5555*(6.11*exp(5417.753*(1/273.16-1/(273.15+dew)))-10); // the value of HUMIDEX has been claculated.
-  Serial.print("Humidex: ");
-  Serial.println(humidex);
+  int digitalValue = digitalRead(D0);
+  int analogValue = digitalRead(D1);
+  
+  // print out the value you read:
+  Serial.print("ANALOG");
+  Serial.println(analogValue);
+  
+  Serial.print("DIGITAL");
+  Serial.println(digitalValue);
   
 }
 /*
@@ -358,6 +360,13 @@ void setup_wifi() {
   Serial.println(WiFi.localIP());
 }
 
+
+void initPin() {
+  pinMode(D1, INPUT);
+  pinMode(D0, INPUT);  
+}
+
+
 void initObjects() {
   setup_wifi();
   
@@ -372,6 +381,7 @@ void initObjects() {
 
 void setup() {
   Serial.begin(9600);
+  initPin();
   initObjects();
 }
 
