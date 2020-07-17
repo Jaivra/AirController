@@ -52,7 +52,7 @@ const int PERSON_COUNTER_IN_EXCITED = 1;
 const int PERSON_COUNTER_OUT_EXCITED = 2;
 const int PERSON_COUNTER_JOIN = 3;
 const int PERSON_COUNTER_EXIT = 4;
-const int PERSON_COUNTER_INCREMENT = 5;
+const int PERSON_COUNTER_INCREMENTED = 5;
 
 int PERSON_COUNTER_STATE = PERSON_COUNTER_IDLE;
 
@@ -168,11 +168,15 @@ void testCallback() {
 
 byte personCounterInCallbackLog = true;
 void ICACHE_RAM_ATTR personCounterInCallback() {
+  if (PERSON_COUNTER_STATE == PERSON_COUNTER_INCREMENTED)
+    return;
+    
   if (PERSON_COUNTER_STATE == PERSON_COUNTER_OUT_EXCITED)
     PERSON_COUNTER_STATE = PERSON_COUNTER_JOIN;
-  else
+  else {
     PERSON_COUNTER_STATE = PERSON_COUNTER_IN_EXCITED;
-  
+    startPersonCounterCountDown(1200);
+  }
   
   if (personCounterInCallbackLog) {
     Serial.print("PersonCounter sensor IN Excited");
@@ -186,11 +190,15 @@ void ICACHE_RAM_ATTR personCounterInCallback() {
 
 byte personCounterOutCallbackLog = true;
 void ICACHE_RAM_ATTR personCounterOutCallback() {
+  if (PERSON_COUNTER_STATE == PERSON_COUNTER_INCREMENTED)
+    return;
+    
   if (PERSON_COUNTER_STATE == PERSON_COUNTER_IN_EXCITED)
     PERSON_COUNTER_STATE = PERSON_COUNTER_EXIT;
-  else
+  else {
     PERSON_COUNTER_STATE = PERSON_COUNTER_OUT_EXCITED;
-  
+    startPersonCounterCountDown(1200);
+  }
   
   if (personCounterOutCallbackLog) {
     Serial.print("PersonCounter sensor OUT excited: ");
@@ -208,15 +216,12 @@ void calculateNextState() {
   if (PERSON_COUNTER_STATE == PERSON_COUNTER_JOIN) {
     personCount += 1;
     PERSON_COUNTER_STATE = PERSON_COUNTER_IDLE;
-    personCounterRestartTask.enable();
-    personCounterRestartTask.setInterval(3000);
+    startPersonCounterCountDown(3000);
   }
   else if (PERSON_COUNTER_STATE == PERSON_COUNTER_EXIT) {
     personCount -= 1;
     PERSON_COUNTER_STATE = PERSON_COUNTER_IDLE;
-    personCounterRestartTask.enable();
-    personCounterRestartTask.setInterval(3000);
-    
+    startPersonCounterCountDown(3000);    
   }
 
   if (calculateNextStateLog) {
@@ -225,13 +230,18 @@ void calculateNextState() {
   } 
 }
 
+void startPersonCounterCountDown(int mill) {
+  personCounterRestartTask.disable();
+  personCounterRestartTask.enable();
+  personCounterRestartTask.setInterval(mill);
+}
 
 byte personCounterRestartCallbackLog = true;
 void personCounterRestartCallback() {
   PERSON_COUNTER_STATE = PERSON_COUNTER_IDLE;
   personCounterRestartTask.disable();
   if (personCounterRestartCallbackLog)
-    Serial.println("personCounterRestartTask");
+    Serial.println("personCounterRestart");
   
 }
 
