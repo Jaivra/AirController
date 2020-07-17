@@ -141,7 +141,7 @@ void sendPersonCounterCallback();
 Task sendPersonCounterTask(1000 * 5, TASK_FOREVER, &sendPersonCounterCallback, &taskManager, true);
 
 void personCounterRestartCallback();
-Task personCounterRestartTask(1200, 1, &personCounterRestartCallback, &taskManager, false);
+Task personCounterRestartTask(2000, TASK_FOREVER, &personCounterRestartCallback);
 
 void MQTTLoopCallback();
 Task MQTTLoopTask(1000 * 2, TASK_FOREVER, &MQTTLoopCallback, &taskManager, true);
@@ -208,11 +208,13 @@ void calculateNextState() {
   if (PERSON_COUNTER_STATE == PERSON_COUNTER_JOIN) {
     personCount += 1;
     PERSON_COUNTER_STATE = PERSON_COUNTER_IDLE;
+    taskManager.addTask(personCounterRestartTask);
     personCounterRestartTask.enable();
   }
   else if (PERSON_COUNTER_STATE == PERSON_COUNTER_EXIT) {
     personCount -= 1;
     PERSON_COUNTER_STATE = PERSON_COUNTER_IDLE;
+    taskManager.addTask(personCounterRestartTask);
     personCounterRestartTask.enable();
   }
 
