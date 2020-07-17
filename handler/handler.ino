@@ -128,8 +128,8 @@ HTTPClient http;
 /*
  * Task declaration
  */
-void testTask();
-Task t0(1000, TASK_FOREVER, &testTask, &taskManager, false);
+void testCallback();
+Task testTask(1000, TASK_FOREVER, &testCallback, &taskManager, false);
 
 //void personCounterInTask();
 //Task t1(1000, TASK_FOREVER, &personCounterInTask, &taskManager, true);
@@ -137,20 +137,20 @@ Task t0(1000, TASK_FOREVER, &testTask, &taskManager, false);
 //void personCounterOutTask();
 //Task t2(1000, TASK_FOREVER, &personCounterOutTask, &taskManager, true);
 
-void sendPersonCounterTask();
-Task t1(1000 * 5, TASK_FOREVER, &sendPersonCounterTask, &taskManager, true);
+void sendPersonCounterCallback();
+Task sendPersonCounterTask(1000 * 5, TASK_FOREVER, &sendPersonCounterCallback, &taskManager, true);
 
-void personCounterRestartTask();
-Task t2(1200, 1, &personCounterRestartTask, &taskManager, false);
+void personCounterRestartCallback();
+Task personCounterRestartTask(1200, 1, &personCounterRestartCallback, &taskManager, false);
 
-void MQTTLoopTask();
-Task t3(1000 * 2, TASK_FOREVER, &MQTTLoopTask, &taskManager, true);
+void MQTTLoopCallback();
+Task MQTTLoopTask(1000 * 2, TASK_FOREVER, &MQTTLoopCallback, &taskManager, true);
 
-void IRRecvTask();
-Task t4(300, TASK_FOREVER, &IRRecvTask, &taskManager, false);
+void IRRecvCallback();
+Task IRRecvTask(300, TASK_FOREVER, &IRRecvCallback, &taskManager, false);
 
-void IRSendTask();
-Task t5(300, TASK_FOREVER, &IRSendTask, &taskManager, false);
+void IRSendCallback();
+Task IRSendTask(300, TASK_FOREVER, &IRSendCallback, &taskManager, false);
 
 
 /*
@@ -158,7 +158,7 @@ Task t5(300, TASK_FOREVER, &IRSendTask, &taskManager, false);
  */
 
 
-void testTask() {
+void testCallback() {
   
 }
 
@@ -166,15 +166,15 @@ void testTask() {
  * personCounterTask and functions
  */
 
-byte personCounterInTaskLog = true;
-void ICACHE_RAM_ATTR personCounterInTask() {
+byte personCounterInCallbackLog = true;
+void ICACHE_RAM_ATTR personCounterInCallback() {
   if (PERSON_COUNTER_STATE == PERSON_COUNTER_OUT_EXCITED)
     PERSON_COUNTER_STATE = PERSON_COUNTER_JOIN;
   else
     PERSON_COUNTER_STATE = PERSON_COUNTER_IN_EXCITED;
   
   
-  if (personCounterInTaskLog) {
+  if (personCounterInCallbackLog) {
     Serial.print("PersonCounter sensor IN Excited");
 
     Serial.print("PersonCounter State: ");
@@ -184,15 +184,15 @@ void ICACHE_RAM_ATTR personCounterInTask() {
   calculateNextState();
 }
 
-byte personCounterOutTaskLog = true;
-void ICACHE_RAM_ATTR personCounterOutTask() {
+byte personCounterOutCallbackLog = true;
+void ICACHE_RAM_ATTR personCounterOutCallback() {
   if (PERSON_COUNTER_STATE == PERSON_COUNTER_IN_EXCITED)
     PERSON_COUNTER_STATE = PERSON_COUNTER_EXIT;
   else
     PERSON_COUNTER_STATE = PERSON_COUNTER_OUT_EXCITED;
   
   
-  if (personCounterOutTaskLog) {
+  if (personCounterOutCallbackLog) {
     Serial.print("PersonCounter sensor OUT excited: ");
     
     Serial.print("PersonCounter State: ");
@@ -207,7 +207,7 @@ byte calculateNextStateLog = true;
 void calculateNextState() {
   if (PERSON_COUNTER_STATE == PERSON_COUNTER_JOIN) {
     personCount += 1;
-    PERSON_COUNTER_STATE = PERSON_COUNTER_IDLE
+    PERSON_COUNTER_STATE = PERSON_COUNTER_IDLE;
     personCounterRestartTask.enable();
   }
   else if (PERSON_COUNTER_STATE == PERSON_COUNTER_EXIT) {
@@ -221,24 +221,24 @@ void calculateNextState() {
     Serial.println(personCount);
   } 
 }
-byte personCounterRestartTaskLog = true;
-void personCounterRestartTask() {
+byte personCounterRestartCallbackLog = true;
+void personCounterRestartCallback() {
   PERSON_COUNTER_STATE = PERSON_COUNTER_IDLE;
   personCounterRestartTask.disable();
-  if (personCounterRestartTaskLog)
+  if (personCounterRestartCallbackLog)
     Serial.println("personCounterRestartTask");
   
 }
 
 
-const byte sendPersonCounterTaskLog = false;
-void sendPersonCounterTask() {
+const byte sendPersonCounterCallbackLog = false;
+void sendPersonCounterCallback() {
   char data[8];
   
   dtostrf(personCount, 6, 2, data);
   client.publish(personCounterTopic, data);
 
-  if (sendPersonCounterTaskLog) {
+  if (sendPersonCounterCallbackLog) {
     Serial.print("Publish message personCounter: ");
     Serial.println(personCounterTopic);
   }
@@ -248,8 +248,8 @@ void sendPersonCounterTask() {
  * MQTTTask and functions
  */
 
-const byte MQTTLoopTaskLog = true;
-void MQTTLoopTask() {
+const byte MQTTLoopCallbackLog = true;
+void MQTTLoopCallback() {
   if (!client.connected()) {
     reconnect();
   }
@@ -258,21 +258,21 @@ void MQTTLoopTask() {
 
 void reconnect() {
   while (!client.connected()) {
-    if (MQTTLoopTaskLog)
+    if (MQTTLoopCallbackLog)
       Serial.print("Attempting MQTT connection...");
     
     String clientId = "ValerioESP8266Client-";
     clientId += String(random(0xffff), HEX);
     
     if (client.connect(clientId.c_str())) {
-      if (MQTTLoopTaskLog)
+      if (MQTTLoopCallbackLog)
         Serial.println("connected");
 
       client.publish(connectionTopic, "true");
       
       //client.subscribe("inTopic");
     } else {
-      if (MQTTLoopTaskLog) {
+      if (MQTTLoopCallbackLog) {
         Serial.print("failed, rc=");
         Serial.print(client.state());
         Serial.println(" try again in 5 seconds");
@@ -287,7 +287,7 @@ void reconnect() {
  * IRTask
  */
 
-void IRRecvTask() {
+void IRRecvCallback() {
  if (irrecv.decode(&results)){
     int value = results.value;
     Serial.println(value, HEX);
@@ -300,7 +300,7 @@ void IRRecvTask() {
 }
 
 
-void IRSendTask() {
+void IRSendCallback() {
   irsend.sendNEC(0x880064A, 28);
 }
 
@@ -335,8 +335,8 @@ void initPin() {
   pinMode(PERSON_IN_PIN, INPUT);
   pinMode(PERSON_OUT_PIN, INPUT);  
 
-  attachInterrupt(digitalPinToInterrupt(PERSON_IN_PIN), personCounterInTask, RISING);
-  //attachInterrupt(digitalPinToInterrupt(PERSON_OUT_PIN), personCounterOutTask, RISING);
+  attachInterrupt(digitalPinToInterrupt(PERSON_IN_PIN), personCounterInCallback, RISING);
+  attachInterrupt(digitalPinToInterrupt(PERSON_OUT_PIN), personCounterOutCallback, RISING);
 
 }
 
