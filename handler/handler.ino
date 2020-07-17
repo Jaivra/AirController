@@ -52,6 +52,7 @@ const int PERSON_COUNTER_IN_EXCITED = 1;
 const int PERSON_COUNTER_OUT_EXCITED = 2;
 const int PERSON_COUNTER_JOIN = 3;
 const int PERSON_COUNTER_EXIT = 4;
+const int PERSON_COUNTER_INCREMENT = 5;
 
 int PERSON_COUNTER_STATE = PERSON_COUNTER_IDLE;
 
@@ -139,6 +140,9 @@ Task t0(1000, TASK_FOREVER, &testTask, &taskManager, false);
 void sendPersonCounterTask();
 Task t1(1000 * 5, TASK_FOREVER, &sendPersonCounterTask, &taskManager, true);
 
+void personCounterRestartTask();
+Task t2(1200, 1, &personCounterRestartTask, &taskManager, false);
+
 void MQTTLoopTask();
 Task t3(1000 * 2, TASK_FOREVER, &MQTTLoopTask, &taskManager, true);
 
@@ -198,19 +202,34 @@ void ICACHE_RAM_ATTR personCounterOutTask() {
   calculateNextState();
 }
 
+
+byte calculateNextStateLog = true;
 void calculateNextState() {
   if (PERSON_COUNTER_STATE == PERSON_COUNTER_JOIN) {
     personCount += 1;
-    PERSON_COUNTER_STATE = PERSON_COUNTER_IDLE;
+    PERSON_COUNTER_STATE = PERSON_COUNTER_IDLE
+    personCounterRestartTask.enable();
   }
   else if (PERSON_COUNTER_STATE == PERSON_COUNTER_EXIT) {
     personCount -= 1;
     PERSON_COUNTER_STATE = PERSON_COUNTER_IDLE;
+    personCounterRestartTask.enable();
   }
-  
-  Serial.print("COUNTER:");
-  Serial.println(personCount);
+
+  if (calculateNextStateLog) {
+    Serial.print("COUNTER:");
+    Serial.println(personCount);
+  } 
 }
+byte personCounterRestartTaskLog = true;
+void personCounterRestartTask() {
+  PERSON_COUNTER_STATE = PERSON_COUNTER_IDLE;
+  personCounterRestartTask.disable();
+  if (personCounterRestartTaskLog)
+    Serial.println("personCounterRestartTask");
+  
+}
+
 
 const byte sendPersonCounterTaskLog = false;
 void sendPersonCounterTask() {
