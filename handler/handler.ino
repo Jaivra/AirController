@@ -117,6 +117,29 @@ float outTemperature;
 float outHumidity;
 float outHeatIndex;
 
+
+/*
+ * NextState settings
+ */
+float humidexTarget;
+
+
+float currentRoomTemperature;
+float currentRoomHumidity;
+float currentRoomHeatIndex;
+float currentRoomHumidex;
+
+float currentOutTemperature;
+float currentOutHumidity;
+float currentOutRoomHeatIndex;
+float currentOutHumidex;
+
+float currentPersonCounter;
+float currentHour;
+
+const int POWER_OFF_STATE;
+const int POWER_ON_STATE;
+ 
 /*
  * Other var
  */
@@ -152,10 +175,8 @@ Task IRRecvTask(300, TASK_FOREVER, &IRRecvCallback, &taskManager, false);
 void IRSendCallback();
 Task IRSendTask(300, TASK_FOREVER, &IRSendCallback, &taskManager, false);
 
-
-/*
- * 
- */
+void nextStateCallback();
+Task nextStateTask(1000 * 10, TASK_FOREVER, &nextStateCallback, &taskManager, true);
 
 
 void testCallback() {
@@ -318,6 +339,22 @@ void IRRecvCallback() {
 void IRSendCallback() {
   irsend.sendNEC(0x880064A, 28);
 }
+
+
+/*
+ * NextStateTask and functions
+ */
+
+void nextStateCallback() {
+  int nextState;
+  if (currentPersonCounter > 0) {
+      
+  }
+  else {
+    nextState = POWER_OFF;
+  }
+}
+
 
 /*
  * INIT

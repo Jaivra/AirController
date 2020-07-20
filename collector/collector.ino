@@ -44,47 +44,19 @@ WiFiClient espClient;
  * MQTT settings 
  */
 
-const char* connectionTopic = "valerio/connected";
+const char* connectionTopic = "valerio/connectedCollector";
 
 const char* roomTemperatureTopic = "valerio/room/temperature";
 const char* roomHumidityTopic = "valerio/room/humidity";
 const char* roomHeatIndexTopic = "valerio/room/heatIndex";
+const char* roomHumidexTopic = "valerio/room/humidex";
 
 const char* outTemperatureTopic = "valerio/out/temperature";
 const char* outHumidityTopic = "valerio/out/humidity";
 const char* outHeatIndexTopic = "valerio/out/heatIndex";
+const char* outHumidexTopic = "valerio/out/humidex";
 
 PubSubClient client(espClient);
-
-
-
-/*
- * IR settings
- */
-
-
-const int RECV_IR_PIN = D6;
-const int SEND_IR_PIN = D5;    
-
-IRrecv irrecv(RECV_IR_PIN);
-decode_results results;
-
-IRsend irsend(SEND_IR_PIN);  // Set the GPIO to be used to sending the message.
-
-int CODES[8] = {
-  0x8808440,
-  0x8808541,
-  0x8808642,
-  0x8808743,
-  0x8808844,
-  0x8808945,
-  0x8808A46,
-  0x8808B47
-};
-
-int POWER_ON = 0x880064A;
-int POWER_OFF = 0x88C0051;
-
 
 
 
@@ -98,10 +70,12 @@ DHT dht(RECV_TEMPERATURE_PIN, DHT22); //Inizializza oggetto chiamato "dht", para
 float roomTemperature;
 float roomHumidity;
 float roomHeatIndex;
+float roomHumidex;
 
 float outTemperature;
 float outHumidity;
 float outHeatIndex;
+float outHumidex;
 
 /*
  * Other var
@@ -114,29 +88,23 @@ HTTPClient http;
 /*
  * Task declaration
  */
-void taskTest();
-Task t0(1000, TASK_FOREVER, &taskTest, &taskManager, true);
+void testCallback();
+Task testTask(1000, TASK_FOREVER, &testCallback, &taskManager, false);
 
-void measureRoomTemperatureTask();
-Task t1(1000 * 5, TASK_FOREVER, &measureRoomTemperatureTask, &taskManager, false);
+void measureRoomTemperatureCallback();
+Task measureRoomTemperatureTask(1000 * 20, TASK_FOREVER, &measureRoomTemperatureCallback, &taskManager, true);
 
-void sendRoomTemperatureTask();
-Task t2(1000 * 10, TASK_FOREVER, &sendRoomTemperatureTask, &taskManager, false);
+void sendRoomTemperatureCallback();
+Task sendRoomTemperatureTask(1000 * 60 * 5, TASK_FOREVER, &sendRoomTemperatureCallback, &taskManager, true);
 
-void measureSimulateOutTemperatureTask();
-Task t3(1000 * 5, TASK_FOREVER, &measureSimulateOutTemperatureTask, &taskManager, false);
+void measureSimulateOutTemperatureCallback();
+Task measureSimulateOutTemperatureTask(1000 * 20, TASK_FOREVER, &measureSimulateOutTemperatureCallback, &taskManager, true);
 
-void sendOutTemperatureTask();
-Task t4(1000 * 10, TASK_FOREVER, &sendOutTemperatureTask, &taskManager, false);
+void sendOutTemperatureCallback();
+Task sendOutTemperatureTask(1000 * 60 * 5, TASK_FOREVER, &sendOutTemperatureCallback, &taskManager, true);
 
-void MQTTLoopTask();
-Task t5(1000 * 2, TASK_FOREVER, &MQTTLoopTask, &taskManager, false);
-
-void IRRecvTask();
-Task t6(300, TASK_FOREVER, &IRRecvTask, &taskManager, false);
-
-void IRSendTask();
-Task t7(300, TASK_FOREVER, &IRSendTask, &taskManager, false);
+void MQTTLoopCallback();
+Task MQTTLoopTask(1000 * 5, TASK_FOREVER, &MQTTLoopCallback, &taskManager, true);
 
 
 /*
@@ -144,46 +112,38 @@ Task t7(300, TASK_FOREVER, &IRSendTask, &taskManager, false);
  */
 
 
-void taskTest() {
-  int digitalValue = digitalRead(D0);
-  int analogValue = digitalRead(D1);
-  
-  // print out the value you read:
-  Serial.print("ANALOG");
-  Serial.println(analogValue);
-  
-  Serial.print("DIGITAL");
-  Serial.println(digitalValue);
+void testCallback() {
   
 }
 /*
  * TemperatureTask and functions
  */
 
-byte measureRoomTemperatureTaskLog = false;
-void measureRoomTemperatureTask() {
+byte measureRoomTemperatureCallbackLog = false;
+void measureRoomTemperatureCallback() {
   roomHumidity = dht.readHumidity();
   roomTemperature = dht.readTemperature();
   roomHeatIndex = dht.computeHeatIndex(roomTemperature, roomHumidity, false);
-  //Stampa umidità e temperatura tramite monitor seriale
-  if (measureRoomTemperatureTask) {
-    Serial.print("Umidità della stanza: ");
+  roomHumidex = calcHumidex(roomTemperature, roomHumidity);
+
+  if (measureRoomTemperatureCallback) {
+    Serial.print("Room Humidity: ");
     Serial.print(roomHumidity);
     Serial.println(" %");
     
-    Serial.print("Temperatura della stanza: ");
+    Serial.print("Room Temperature: ");
     Serial.print(roomTemperature);
     Serial.println(" Celsius");
     
-    Serial.print("Indice di calore: ");
-    Serial.print(roomHeatIndex);
+    Serial.print("Room Humidex: ");
+    Serial.print(roomHumidex);
     Serial.println(" Celsius");
     
   }
 }
 
-byte measureSimulateOutTemperatureTaskLog = false;
-void measureSimulateOutTemperatureTask() {
+byte measureSimulateOutTemperatureCallbackLog = false;
+void measureSimulateOutTemperatureCallback() {
   http.begin("http://api.openweathermap.org/data/2.5/weather?lat=45.469706&units=metric&lon=9.237468&appid=4cdeae287c5efcdb83c9503436abf8d5");
   int httpCode = http.GET();
 
@@ -205,19 +165,20 @@ void measureSimulateOutTemperatureTask() {
     outHumidity= root["humidity"].as<float>();
     outTemperature = root["temp"].as<float>();
     outHeatIndex = dht.computeHeatIndex(outTemperature, outHumidity, false);
-
-    if (measureSimulateOutTemperatureTaskLog) {
+    outHumidex = calcHumidex(outTemperature, outHumidity);
+    
+    if (measureSimulateOutTemperatureCallbackLog) {
       //serializeJsonPretty(doc, Serial);
-      Serial.print("Umidità out: ");
+      Serial.print("Out Humidity: ");
       Serial.print(outHumidity);
       Serial.println(" %");
     
-      Serial.print("Temperatura out: ");
+      Serial.print("Out Temperature: ");
       Serial.print(outTemperature);
       Serial.println(" Celsius");
     
-      Serial.print("Indice di calore out: ");
-      Serial.print(outHeatIndex);
+      Serial.print("Out Humidex: ");
+      Serial.print(outHumidex);
       Serial.println(" Celsius");
     
     }
@@ -239,8 +200,8 @@ float calcHumidex(float temperature, float humidity) {
  * MQTTTask and functions
  */
 
-const byte sendRoomTemperatureTaskLog = false;
-void sendRoomTemperatureTask() {
+const byte sendRoomTemperatureCallbackLog = false;
+void sendRoomTemperatureCallback() {
   char data[8];
   
   dtostrf(roomTemperature, 6, 2, data);
@@ -252,15 +213,18 @@ void sendRoomTemperatureTask() {
   dtostrf(roomHeatIndex, 6, 2, data);
   client.publish(roomHeatIndexTopic, data);
 
-  if (sendRoomTemperatureTaskLog) {
+  dtostrf(roomHumidex, 6, 2, data);
+  client.publish(roomHumidexTopic, data);
+
+  if (sendRoomTemperatureCallbackLog) {
     Serial.print("Publish message roomHeatIndex: ");
     Serial.println(roomHeatIndex);
   }
 }
 
 
-const byte sendOutTemperatureTaskLog = false;
-void sendOutTemperatureTask() {
+const byte sendOutTemperatureCallbackLog = false;
+void sendOutTemperatureCallback() {
   char data[8];
   
   dtostrf(outTemperature, 6, 2, data);
@@ -272,14 +236,17 @@ void sendOutTemperatureTask() {
   dtostrf(outHeatIndex, 6, 2, data);
   client.publish(outHeatIndexTopic, data);
 
-  if (sendOutTemperatureTaskLog) {
+  dtostrf(outHumidex, 6, 2, data);
+  client.publish(outHumidexTopic, data);
+
+  if (sendOutTemperatureCallbackLog) {
     Serial.print("Publish message outHeatIndex: ");
     Serial.println(roomHeatIndex);
   }
 }
 
-const byte MQTTLoopTaskLog = true;
-void MQTTLoopTask() {
+const byte MQTTLoopCallbackLog = true;
+void MQTTLoopCallback() {
   if (!client.connected()) {
     reconnect();
   }
@@ -288,21 +255,21 @@ void MQTTLoopTask() {
 
 void reconnect() {
   while (!client.connected()) {
-    if (MQTTLoopTaskLog)
+    if (MQTTLoopCallbackLog)
       Serial.print("Attempting MQTT connection...");
     
-    String clientId = "ValerioESP8266Client-";
+    String clientId = "ValerioESP8266ClientCollector-";
     clientId += String(random(0xffff), HEX);
     
     if (client.connect(clientId.c_str())) {
-      if (MQTTLoopTaskLog)
+      if (MQTTLoopCallbackLog)
         Serial.println("connected");
 
       client.publish(connectionTopic, "true");
       
       //client.subscribe("inTopic");
     } else {
-      if (MQTTLoopTaskLog) {
+      if (MQTTLoopCallbackLog) {
         Serial.print("failed, rc=");
         Serial.print(client.state());
         Serial.println(" try again in 5 seconds");
@@ -312,27 +279,6 @@ void reconnect() {
   }
 }
 
-
-/*
- * IRTask
- */
-
-void IRRecvTask() {
- if (irrecv.decode(&results)){
-    int value = results.value;
-    Serial.println(value, HEX);
-    irrecv.resume();
-    Serial.println();
-  }
-  else {
-    Serial.println("PASSATO");
-  }
-}
-
-
-void IRSendTask() {
-  irsend.sendNEC(0x880064A, 28);
-}
 
 /*
  * INIT
@@ -362,8 +308,7 @@ void setup_wifi() {
 
 
 void initPin() {
-  pinMode(D1, INPUT);
-  pinMode(D0, INPUT);  
+  pinMode(RECV_TEMPERATURE_PIN, INPUT);
 }
 
 
@@ -373,10 +318,6 @@ void initObjects() {
   client.setServer(mqtt_server, 1883);
   
   dht.begin();
-
-  irrecv.enableIRIn();
-  
-  irsend.begin();
 }
 
 void setup() {
