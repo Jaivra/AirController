@@ -60,15 +60,17 @@ int PERSON_COUNTER_STATE = PERSON_COUNTER_IDLE;
  * MQTT settings 
  */
 
-const char* connectionTopic = "valerio/connected";
+const char* connectionTopic = "valerio/connectedHandler";
 
 const char* roomTemperatureTopic = "valerio/room/temperature";
 const char* roomHumidityTopic = "valerio/room/humidity";
 const char* roomHeatIndexTopic = "valerio/room/heatIndex";
+const char* roomHumidexTopic = "valerio/room/humidex";
 
 const char* outTemperatureTopic = "valerio/out/temperature";
 const char* outHumidityTopic = "valerio/out/humidity";
 const char* outHeatIndexTopic = "valerio/out/heatIndex";
+const char* outHumidexTopic = "valerio/out/humidex";
 
 const char* personCounterTopic = "valerio/room/personCounter";
 PubSubClient client(espClient);
@@ -78,7 +80,6 @@ PubSubClient client(espClient);
 /*
  * IR settings
  */
-
 
 const int RECV_IR_PIN = D6;
 const int SEND_IR_PIN = D5;    
@@ -103,21 +104,6 @@ int POWER_ON = 0x880064A;
 int POWER_OFF = 0x88C0051;
 
 
-
-
-/*
- * Temperature settings
- */
-
-float roomTemperature;
-float roomHumidity;
-float roomHeatIndex;
-
-float outTemperature;
-float outHumidity;
-float outHeatIndex;
-
-
 /*
  * NextState settings
  */
@@ -137,8 +123,8 @@ float currentOutHumidex;
 float currentPersonCounter;
 float currentHour;
 
-const int POWER_OFF_STATE;
-const int POWER_ON_STATE;
+const int POWER_OFF_STATE = 0;
+const int POWER_ON_STATE = 1;
  
 /*
  * Other var
@@ -153,12 +139,6 @@ HTTPClient http;
  */
 void testCallback();
 Task testTask(1000, TASK_FOREVER, &testCallback, &taskManager, false);
-
-//void personCounterInTask();
-//Task t1(1000, TASK_FOREVER, &personCounterInTask, &taskManager, true);
-
-//void personCounterOutTask();
-//Task t2(1000, TASK_FOREVER, &personCounterOutTask, &taskManager, true);
 
 void sendPersonCounterCallback();
 Task sendPersonCounterTask(1000 * 5, TASK_FOREVER, &sendPersonCounterCallback, &taskManager, true);
@@ -292,12 +272,46 @@ void MQTTLoopCallback() {
   client.loop();
 }
 
+
+void MQTTReceivedMessage(char* topic, byte* payload, unsigned int length) {
+
+
+  
+  if (strcmp(personCounterTopic, topic) == 0) {
+    char* PauseStr;
+    PauseStr = (char*)payload;
+    float value = atof((char*)payload);
+    
+    
+    Serial.print("Person Counter");
+    Serial.println(value);
+  }
+  else
+    Serial.print("Message arrived in topic: ");
+  Serial.print("*");
+  Serial.print(topic);
+  Serial.println("*");
+
+  Serial.print("*");
+  Serial.print(personCounterTopic);
+  Serial.println("*");
+  
+  Serial.print("Message:");
+  for (int i = 0; i < length; i++) {
+    Serial.print((char)payload[i]);
+  }
+ 
+  Serial.println();
+  Serial.println("-----------------------");
+ 
+}
+
 void reconnect() {
   while (!client.connected()) {
     if (MQTTLoopCallbackLog)
       Serial.print("Attempting MQTT connection...");
     
-    String clientId = "ValerioESP8266Client-";
+    String clientId = "ValerioESP8266ClientHandler-";
     clientId += String(random(0xffff), HEX);
     
     if (client.connect(clientId.c_str())) {
@@ -306,7 +320,8 @@ void reconnect() {
 
       client.publish(connectionTopic, "true");
       
-      //client.subscribe("inTopic");
+      client.subscribe("valerio/#");
+      client.setCallback(MQTTReceivedMessage);
     } else {
       if (MQTTLoopCallbackLog) {
         Serial.print("failed, rc=");
