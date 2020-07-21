@@ -60,12 +60,13 @@ int PERSON_COUNTER_STATE = PERSON_COUNTER_IDLE;
  * MQTT settings 
  */
 
-const char* connectionTopic = "valerio/connectedHandler";
+const char* connectionTopic = "valerio/connection/handler";
 
 const char* roomTemperatureTopic = "valerio/room/temperature";
 const char* roomHumidityTopic = "valerio/room/humidity";
 const char* roomHeatIndexTopic = "valerio/room/heatIndex";
 const char* roomHumidexTopic = "valerio/room/humidex";
+const char* roomSetHumidexTargetTopic = "valerio/room/setHumidexTarget";
 
 const char* outTemperatureTopic = "valerio/out/temperature";
 const char* outHumidityTopic = "valerio/out/humidity";
@@ -73,6 +74,10 @@ const char* outHeatIndexTopic = "valerio/out/heatIndex";
 const char* outHumidexTopic = "valerio/out/humidex";
 
 const char* personCounterTopic = "valerio/room/personCounter";
+const char* setPersonCounterTopic = "valerio/room/setPersonCounter";
+
+const char* configurationTopic = "valerio/configuration";
+
 PubSubClient client(espClient);
 
 
@@ -107,8 +112,7 @@ int POWER_OFF = 0x88C0051;
 /*
  * NextState settings
  */
-float humidexTarget;
-
+float humidexTarget = 26.5;
 
 float currentRoomTemperature;
 float currentRoomHumidity;
@@ -117,7 +121,7 @@ float currentRoomHumidex;
 
 float currentOutTemperature;
 float currentOutHumidity;
-float currentOutRoomHeatIndex;
+float currentOutHeatIndex;
 float currentOutHumidex;
 
 float currentPersonCounter;
@@ -125,7 +129,8 @@ float currentHour;
 
 const int POWER_OFF_STATE = 0;
 const int POWER_ON_STATE = 1;
- 
+
+const int CONDITIONER_STATE = POWER_OFF_STATE;
 /*
  * Other var
  */
@@ -141,7 +146,7 @@ void testCallback();
 Task testTask(1000, TASK_FOREVER, &testCallback, &taskManager, false);
 
 void sendPersonCounterCallback();
-Task sendPersonCounterTask(1000 * 5, TASK_FOREVER, &sendPersonCounterCallback, &taskManager, true);
+Task sendPersonCounterTask(1000 * 30, TASK_FOREVER, &sendPersonCounterCallback, &taskManager, true);
 
 void personCounterRestartCallback();
 Task personCounterRestartTask(1500, TASK_FOREVER, &personCounterRestartCallback, &taskManager);
@@ -155,9 +160,11 @@ Task IRRecvTask(300, TASK_FOREVER, &IRRecvCallback, &taskManager, false);
 void IRSendCallback();
 Task IRSendTask(300, TASK_FOREVER, &IRSendCallback, &taskManager, false);
 
-void nextStateCallback();
-Task nextStateTask(1000 * 10, TASK_FOREVER, &nextStateCallback, &taskManager, true);
+void nextConditionerStateCallback();
+Task nextConditionerStateTask(1000 * 10, TASK_FOREVER, &nextConditionerStateCallback, &taskManager, true);
 
+void sendConfigurationCallback();
+Task sendConfigurationTask(1000 *  60, TASK_FOREVER, &sendConfigurationCallback, &taskManager, true);
 
 void testCallback() {
   
@@ -186,7 +193,7 @@ void ICACHE_RAM_ATTR personCounterInCallback() {
     Serial.println(PERSON_COUNTER_STATE);
   }
 
-  calculateNextState();
+  calculateNextPersonCounterState();
 }
 
 byte personCounterOutCallbackLog = true;
@@ -208,24 +215,24 @@ void ICACHE_RAM_ATTR personCounterOutCallback() {
     Serial.println(PERSON_COUNTER_STATE);
   } 
 
-  calculateNextState();
+  calculateNextPersonCounterState();
 }
 
 
-byte calculateNextStateLog = true;
-void calculateNextState() {
+byte calculateNextPersonCounterStateLog = true;
+void calculateNextPersonCounterState() {
   if (PERSON_COUNTER_STATE == PERSON_COUNTER_JOIN) {
     personCount += 1;
     PERSON_COUNTER_STATE = PERSON_COUNTER_IDLE;
-    startPersonCounterCountDown(3000);
+    startPersonCounterCountDown(5000);
   }
   else if (PERSON_COUNTER_STATE == PERSON_COUNTER_EXIT) {
     personCount -= 1;
     PERSON_COUNTER_STATE = PERSON_COUNTER_IDLE;
-    startPersonCounterCountDown(3000);    
+    startPersonCounterCountDown(5000);    
   }
 
-  if (calculateNextStateLog) {
+  if (calculateNextPersonCounterStateLog) {
     Serial.print("COUNTER:");
     Serial.println(personCount);
   } 
@@ -273,37 +280,50 @@ void MQTTLoopCallback() {
 }
 
 
+byte MQTTReceivedMessageLog = true;
 void MQTTReceivedMessage(char* topic, byte* payload, unsigned int length) {
 
+  if (strcmp(roomSetHumidexTargetTopic, topic) == 0)
+    humidexTarget = atof((char*)payload);
+    
+  else if (strcmp(roomTemperatureTopic, topic) == 0)
+    currentRoomTemperature = atof((char*)payload);
+  else if (strcmp(roomHumidityTopic, topic) == 0)
+    currentRoomHumidity = atof((char*)payload);
+  else if (strcmp(roomHeatIndexTopic, topic) == 0)
+    currentRoomHeatIndex = atof((char*)payload);
+  else if (strcmp(roomHumidexTopic, topic) == 0)
+    currentRoomHumidex = atof((char*)payload);
 
-  
-  if (strcmp(personCounterTopic, topic) == 0) {
-    char* PauseStr;
-    PauseStr = (char*)payload;
-    float value = atof((char*)payload);
-    
-    
-    Serial.print("Person Counter");
-    Serial.println(value);
-  }
-  else
+  else if (strcmp(outTemperatureTopic, topic) == 0)
+    currentOutTemperature = atof((char*)payload);
+  else if (strcmp(outHumidityTopic, topic) == 0)
+    currentOutHumidity = atof((char*)payload);
+  else if (strcmp(outHeatIndexTopic, topic) == 0)
+    currentOutHeatIndex = atof((char*)payload);
+  else if (strcmp(outHumidexTopic, topic) == 0)
+    currentOutHumidex = atof((char*)payload);
+
+  else if (strcmp(personCounterTopic, topic) == 0)
+    currentPersonCounter = atof((char*)payload);
+  else if (strcmp(setPersonCounterTopic, topic) == 0)
+    personCount = (int) atof((char*)payload);
+
+ 
+
+  if (MQTTReceivedMessageLog) {
     Serial.print("Message arrived in topic: ");
-  Serial.print("*");
-  Serial.print(topic);
-  Serial.println("*");
-
-  Serial.print("*");
-  Serial.print(personCounterTopic);
-  Serial.println("*");
+    Serial.println(topic);
+    Serial.println(currentOutHumidex);
   
-  Serial.print("Message:");
-  for (int i = 0; i < length; i++) {
-    Serial.print((char)payload[i]);
+  
+    Serial.print("Message:");
+    for (int i = 0; i < length; i++) {
+      Serial.print((char)payload[i]);
+    }
+ 
+    Serial.println("-----------------------");
   }
- 
-  Serial.println();
-  Serial.println("-----------------------");
- 
 }
 
 void reconnect() {
@@ -357,10 +377,10 @@ void IRSendCallback() {
 
 
 /*
- * NextStateTask and functions
+ * configurationTask and functions
  */
 
-void nextStateCallback() {
+void nextConditionerStateCallback() {
   int nextState;
   if (currentPersonCounter > 0) {
       
@@ -370,7 +390,21 @@ void nextStateCallback() {
   }
 }
 
+void sendConfigurationCallback() {
+  String configuration = "";
 
+  configuration.concat("{");
+  
+  configuration.concat("humidexTarget:");
+  configuration.concat(String(humidexTarget));
+
+  configuration.concat("}");
+
+  char data[configuration.length() + 1];
+  configuration.toCharArray(data, configuration.length() + 1);
+  client.publish(configurationTopic, data);
+}
+ 
 /*
  * INIT
  */

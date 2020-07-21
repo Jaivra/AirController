@@ -48,11 +48,14 @@ def on_connect(client, userdata, flags, rc):
 
 
 def on_message(client, userdata, msg):
-    global room_measure, out_measure, row_count
+    global room_measure, out_measure, row_count, personCount, humidexTarget
 
     topic = msg.topic
-    #print("Arrive:", topic)
-    if room_measure.has_sub_topic(topic):
+    if "valerio/room/personCounter" in topic:
+        personCount = float(msg.payload.decode("utf-8"))
+    elif "valerio/configuration" in topic:
+        humidexTarget = float(msg.payload.decode("utf-8"))
+    elif room_measure.has_sub_topic(topic):
         room_measure.update_measure(topic.split('/')[-1], float(msg.payload.decode("utf-8")))
     elif out_measure.has_sub_topic(topic):
         sub_topic = topic.split('/')[-1]
@@ -62,13 +65,16 @@ def on_message(client, userdata, msg):
             row_count += 1
             dt = datetime.datetime.now()
             now = dt.strftime("%d/%m/%Y,%H:%M")
-            row = "{},{},{}\n".format(now, room_measure.to_csv(), out_measure.to_csv())
+            row = "{},{},{},{},{}\n".format(now, room_measure.to_csv(), out_measure.to_csv(), personCount, humidexTarget)
             #print("****", row)
             f.write(row)
             f.flush()
             #print("{} righe nel dataset".format(row_count))
 
 f = open("data.csv", "a")
+
+personCount = 0
+humidexTarget = 0
 out_measure = Measure("valerio/out")
 room_measure = Measure("valerio/room")
 
