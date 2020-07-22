@@ -44,7 +44,7 @@ WiFiClient espClient;
  * MQTT settings 
  */
 
-const char* connectionTopic = "valerio/connectedCollector";
+const char* connectionTopic = "valerio/connected/collector";
 
 const char* roomTemperatureTopic = "valerio/room/temperature";
 const char* roomHumidityTopic = "valerio/room/humidity";
@@ -95,13 +95,13 @@ void measureRoomTemperatureCallback();
 Task measureRoomTemperatureTask(1000 * 20, TASK_FOREVER, &measureRoomTemperatureCallback, &taskManager, true);
 
 void sendRoomTemperatureCallback();
-Task sendRoomTemperatureTask(1000 * 60 * 5, TASK_FOREVER, &sendRoomTemperatureCallback, &taskManager, true);
+Task sendRoomTemperatureTask(1000 * 60 * 2, TASK_FOREVER, &sendRoomTemperatureCallback, &taskManager, true);
 
 void measureSimulateOutTemperatureCallback();
 Task measureSimulateOutTemperatureTask(1000 * 20, TASK_FOREVER, &measureSimulateOutTemperatureCallback, &taskManager, true);
 
 void sendOutTemperatureCallback();
-Task sendOutTemperatureTask(1000 * 60 * 5, TASK_FOREVER, &sendOutTemperatureCallback, &taskManager, true);
+Task sendOutTemperatureTask(1000 * 60 * 2, TASK_FOREVER, &sendOutTemperatureCallback, &taskManager, true);
 
 void MQTTLoopCallback();
 Task MQTTLoopTask(1000 * 5, TASK_FOREVER, &MQTTLoopCallback, &taskManager, true);

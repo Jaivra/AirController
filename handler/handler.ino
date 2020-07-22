@@ -154,11 +154,11 @@ Task personCounterRestartTask(1500, TASK_FOREVER, &personCounterRestartCallback,
 void MQTTLoopCallback();
 Task MQTTLoopTask(1000 * 2, TASK_FOREVER, &MQTTLoopCallback, &taskManager, true);
 
-void IRRecvCallback();
-Task IRRecvTask(300, TASK_FOREVER, &IRRecvCallback, &taskManager, false);
+//void IRRecvCallback();
+//Task IRRecvTask(300, TASK_FOREVER, &IRRecvCallback, &taskManager, false);
 
-void IRSendCallback();
-Task IRSendTask(300, TASK_FOREVER, &IRSendCallback, &taskManager, false);
+//void IRSendCallback();
+//Task IRSendTask(300, TASK_FOREVER, &IRSendCallback, &taskManager, false);
 
 void nextConditionerStateCallback();
 Task nextConditionerStateTask(1000 * 10, TASK_FOREVER, &nextConditionerStateCallback, &taskManager, true);
@@ -183,7 +183,7 @@ void ICACHE_RAM_ATTR personCounterInCallback() {
     PERSON_COUNTER_STATE = PERSON_COUNTER_JOIN;
   else {
     PERSON_COUNTER_STATE = PERSON_COUNTER_IN_EXCITED;
-    startPersonCounterCountDown(1200);
+    startPersonCounterCountDown(1000 * 2);
   }
   
   if (personCounterInCallbackLog) {
@@ -205,7 +205,7 @@ void ICACHE_RAM_ATTR personCounterOutCallback() {
     PERSON_COUNTER_STATE = PERSON_COUNTER_EXIT;
   else {
     PERSON_COUNTER_STATE = PERSON_COUNTER_OUT_EXCITED;
-    startPersonCounterCountDown(1200);
+    startPersonCounterCountDown(1000 * 2);
   }
   
   if (personCounterOutCallbackLog) {
@@ -224,12 +224,12 @@ void calculateNextPersonCounterState() {
   if (PERSON_COUNTER_STATE == PERSON_COUNTER_JOIN) {
     personCount += 1;
     PERSON_COUNTER_STATE = PERSON_COUNTER_IDLE;
-    startPersonCounterCountDown(5000);
+    startPersonCounterCountDown(1000 * 10);
   }
   else if (PERSON_COUNTER_STATE == PERSON_COUNTER_EXIT) {
     personCount -= 1;
     PERSON_COUNTER_STATE = PERSON_COUNTER_IDLE;
-    startPersonCounterCountDown(5000);    
+    startPersonCounterCountDown(1000 * 10);    
   }
 
   if (calculateNextPersonCounterStateLog) {
@@ -383,10 +383,23 @@ void IRSendCallback() {
 void nextConditionerStateCallback() {
   int nextState;
   if (currentPersonCounter > 0) {
-      
+    if (currentOutHumidex > 33 && currentRoomHumidex > 31)
+      nextState = POWER_ON;
+    else
+      nextState = POWER_OFF;
   }
   else {
     nextState = POWER_OFF;
+  }
+  sendConditionerSignal(nextState);
+}
+
+void sendConditionerSignal(nextState) {
+  if (nextState != CURRENT_STATE) {
+    switch(nextState) {
+      case POWER_OFF: irsend.sendNEC(POWER_OFF, 28); break;
+      case POWER_ON: irsend.sendNEC(POWER_ON, 28); break;
+    }
   }
 }
 

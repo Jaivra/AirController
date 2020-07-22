@@ -7,6 +7,7 @@ class Measure:
         self._topic = topic
         self._temperature = None
         self._humidity = None
+        self._humidex = None
         self._heat_index = None
 
 
@@ -18,6 +19,8 @@ class Measure:
             self._temperature = value
         elif desc == "humidity":
             self._humidity = value
+        elif desc == "humidex":
+            self._humidex = value
         else:
             self._heat_index = value
 
@@ -30,17 +33,21 @@ class Measure:
         return self._humidity
 
     @property
+    def humidex(self):
+        return self._humidex
+
+    @property
     def heat_index(self):
-        return self._temperature
+        return self._heat_index
 
     def has_data(self):
-        return self._temperature is not None and self._humidity is not None and self._heat_index is not None
+        return self._temperature is not None and self._humidity is not None and self._humidex is not None and self._heat_index is not None
 
     def __repr__(self):
-        return "Temperatura: {} - Umidità: {} - Indice di calore: {}".format(self._temperature, self._humidity, self._heat_index)
+        return "Temperatura: {} - Umidità: {} - Humidex: {} - Indice di calore: {}".format(self._temperature, self._humidity, self._humidex, self._heat_index)
 
     def to_csv(self):
-        return "{},{},{}".format(self._temperature, self._humidity, self._heat_index)
+        return "{},{},{},{}".format(self._temperature, self._humidity, self._humidex, self._heat_index)
 
 def on_connect(client, userdata, flags, rc):
     print("Connected with result code " + str(rc))
