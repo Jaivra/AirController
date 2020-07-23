@@ -40,23 +40,6 @@ const char* mqtt_server = "mqtt.atrent.it";
 
 WiFiClient espClient;
 
-/*
- * personCounter setting
- */
-
-const int PERSON_IN_PIN = D1;
-const int PERSON_OUT_PIN = D5;
-
-int personCount = 0;
-
-const int PERSON_COUNTER_IDLE = 0;
-const int PERSON_COUNTER_IN_EXCITED = 1;
-const int PERSON_COUNTER_OUT_EXCITED = 2;
-const int PERSON_COUNTER_JOIN = 3;
-const int PERSON_COUNTER_EXIT = 4;
-const int PERSON_COUNTER_INCREMENTED = 5;
-
-int PERSON_COUNTER_STATE = PERSON_COUNTER_IDLE;
 
 /*
  * MQTT settings 
@@ -76,12 +59,10 @@ const char* outHeatIndexTopic = "valerio/out/heatIndex";
 const char* outHumidexTopic = "valerio/out/humidex";
 
 const char* personCounterTopic = "valerio/room/personCounter";
-const char* setPersonCounterTopic = "valerio/room/setPersonCounter";
 
 const char* configurationTopic = "valerio/configuration";
 
 PubSubClient client(espClient);
-
 
 
 /*
@@ -110,6 +91,7 @@ int CODES[8] = {
 const int POWER_ON_SIGNAL = 0x880064A;
 const int POWER_OFF_SIGNAL = 0x88C0051;
 
+
 /*
  * NTP settings
  */
@@ -117,6 +99,7 @@ const int POWER_OFF_SIGNAL = 0x88C0051;
 const long utcOffsetInSeconds = 3600 * 2;
 WiFiUDP ntpUDP;
 NTPClient timeClient(ntpUDP, "pool.ntp.org", utcOffsetInSeconds);
+
  
 /*
  * NextState settings
@@ -153,14 +136,9 @@ HTTPClient http;
 /*
  * Task declaration
  */
+ 
 void testCallback();
 Task testTask(1000, TASK_FOREVER, &testCallback, &taskManager, false);
-
-void sendPersonCounterCallback();
-Task sendPersonCounterTask(1000 * 30, TASK_FOREVER, &sendPersonCounterCallback, &taskManager, true);
-
-void personCounterRestartCallback();
-Task personCounterRestartTask(1000 * 2, TASK_FOREVER, &personCounterRestartCallback, &taskManager);
 
 void MQTTLoopCallback();
 Task MQTTLoopTask(1000 * 2, TASK_FOREVER, &MQTTLoopCallback, &taskManager, true);
@@ -180,106 +158,15 @@ Task nextConditionerStateTask(1000 * 8, TASK_FOREVER, &nextConditionerStateCallb
 void sendConfigurationCallback();
 Task sendConfigurationTask(1000 *  60, TASK_FOREVER, &sendConfigurationCallback, &taskManager, true);
 
+
+/*
+ * testTask
+ */
+ 
 void testCallback() {
   
 }
 
-/*
- * personCounterTask and functions
- */
-
-byte personCounterInCallbackLog = true;
-void ICACHE_RAM_ATTR personCounterInCallback() {
-  if (PERSON_COUNTER_STATE == PERSON_COUNTER_INCREMENTED)
-    return;
-    
-  if (PERSON_COUNTER_STATE == PERSON_COUNTER_OUT_EXCITED)
-    PERSON_COUNTER_STATE = PERSON_COUNTER_JOIN;
-  else {
-    PERSON_COUNTER_STATE = PERSON_COUNTER_IN_EXCITED;
-    startPersonCounterCountDown(1000 * 2);
-  }
-  
-  if (personCounterInCallbackLog) {
-    Serial.print("PersonCounter sensor IN Excited");
-
-    Serial.print("PersonCounter State: ");
-    Serial.println(PERSON_COUNTER_STATE);
-  }
-
-  calculateNextPersonCounterState();
-}
-
-byte personCounterOutCallbackLog = true;
-void ICACHE_RAM_ATTR personCounterOutCallback() {
-  if (PERSON_COUNTER_STATE == PERSON_COUNTER_INCREMENTED)
-    return;
-    
-  if (PERSON_COUNTER_STATE == PERSON_COUNTER_IN_EXCITED)
-    PERSON_COUNTER_STATE = PERSON_COUNTER_EXIT;
-  else {
-    PERSON_COUNTER_STATE = PERSON_COUNTER_OUT_EXCITED;
-    startPersonCounterCountDown(1000 * 2);
-  }
-  
-  if (personCounterOutCallbackLog) {
-    Serial.print("PersonCounter sensor OUT excited: ");
-    
-    Serial.print("PersonCounter State: ");
-    Serial.println(PERSON_COUNTER_STATE);
-  } 
-
-  calculateNextPersonCounterState();
-}
-
-
-byte calculateNextPersonCounterStateLog = false;
-void calculateNextPersonCounterState() {
-  if (PERSON_COUNTER_STATE == PERSON_COUNTER_JOIN) {
-    personCount += 1;
-    PERSON_COUNTER_STATE = PERSON_COUNTER_IDLE;
-    startPersonCounterCountDown(1000 * 10);
-  }
-  else if (PERSON_COUNTER_STATE == PERSON_COUNTER_EXIT) {
-    personCount -= 1;
-    PERSON_COUNTER_STATE = PERSON_COUNTER_IDLE;
-    startPersonCounterCountDown(1000 * 10);    
-  }
-
-  if (calculateNextPersonCounterStateLog) {
-    Serial.print("COUNTER:");
-    Serial.println(personCount);
-  } 
-}
-
-void startPersonCounterCountDown(int mill) {
-  personCounterRestartTask.disable();
-  personCounterRestartTask.enable();
-  personCounterRestartTask.setInterval(mill);
-}
-
-byte personCounterRestartCallbackLog = false;
-void personCounterRestartCallback() {
-  PERSON_COUNTER_STATE = PERSON_COUNTER_IDLE;
-  personCounterRestartTask.disable();
-  if (personCounterRestartCallbackLog)
-    Serial.println("personCounterRestart");
-  
-}
-
-
-const byte sendPersonCounterCallbackLog = false;
-void sendPersonCounterCallback() {
-  char data[8];
-  
-  dtostrf(personCount, 6, 2, data);
-  client.publish(personCounterTopic, data);
-
-  if (sendPersonCounterCallbackLog) {
-    Serial.print("Publish message personCounter: ");
-    Serial.println(personCounterTopic);
-  }
-}
 
 /*
  * MQTTTask and functions
@@ -320,9 +207,6 @@ void MQTTReceivedMessage(char* topic, byte* payload, unsigned int length) {
 
   else if (strcmp(personCounterTopic, topic) == 0)
     currentPersonCounter = atof((char*)payload);
-  else if (strcmp(setPersonCounterTopic, topic) == 0)
-    personCount = (int) atof((char*)payload);
-
  
 
   if (MQTTReceivedMessageLog) {
@@ -495,13 +379,8 @@ void setup_wifi() {
 
 
 void initPin() {
-  pinMode(PERSON_IN_PIN, INPUT);
-  pinMode(PERSON_OUT_PIN, INPUT);  
- 
-
-  attachInterrupt(digitalPinToInterrupt(PERSON_IN_PIN), personCounterInCallback, RISING);
-  attachInterrupt(digitalPinToInterrupt(PERSON_OUT_PIN), personCounterOutCallback, RISING);
-
+  pinMode(RECV_IR_PIN, INPUT);
+  pinMode(SEND_IR_PIN, OUTPUT);  
 }
 
 
