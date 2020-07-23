@@ -4,14 +4,16 @@
 #include <IRrecv.h>
 #include <TaskScheduler.h>
 #include <DHT.h>
+#include <NTPClient.h>
 #include <ESP8266WiFi.h>
+#include <WiFiUdp.h>
 #include <PubSubClient.h>
 #include <ESP8266HTTPClient.h>
 #include <ArduinoJson.h>
 
 
 /*
- * PIN MAPPING
+ * PIN MAPPING 6
  */
 
 static const uint8_t D0   = 16;
@@ -43,7 +45,7 @@ WiFiClient espClient;
  */
 
 const int PERSON_IN_PIN = D1;
-const int PERSON_OUT_PIN = D2;
+const int PERSON_OUT_PIN = D5;
 
 int personCount = 0;
 
@@ -87,7 +89,7 @@ PubSubClient client(espClient);
  */
 
 const int RECV_IR_PIN = D6;
-const int SEND_IR_PIN = D5;    
+const int SEND_IR_PIN = D2;    
 
 IRrecv irrecv(RECV_IR_PIN);
 decode_results results;
@@ -105,10 +107,17 @@ int CODES[8] = {
   0x8808B47
 };
 
-int POWER_ON = 0x880064A;
-int POWER_OFF = 0x88C0051;
+const int POWER_ON_SIGNAL = 0x880064A;
+const int POWER_OFF_SIGNAL = 0x88C0051;
 
+/*
+ * NTP settings
+ */
 
+const long utcOffsetInSeconds = 3600 * 2;
+WiFiUDP ntpUDP;
+NTPClient timeClient(ntpUDP, "pool.ntp.org", utcOffsetInSeconds);
+ 
 /*
  * NextState settings
  */
@@ -125,12 +134,14 @@ float currentOutHeatIndex;
 float currentOutHumidex;
 
 float currentPersonCounter;
-float currentHour;
+int currentHour;
+int currentMinute;
 
 const int POWER_OFF_STATE = 0;
 const int POWER_ON_STATE = 1;
 
-const int CONDITIONER_STATE = POWER_OFF_STATE;
+int CONDITIONER_STATE = POWER_OFF_STATE;
+
 /*
  * Other var
  */
@@ -149,7 +160,7 @@ void sendPersonCounterCallback();
 Task sendPersonCounterTask(1000 * 30, TASK_FOREVER, &sendPersonCounterCallback, &taskManager, true);
 
 void personCounterRestartCallback();
-Task personCounterRestartTask(1500, TASK_FOREVER, &personCounterRestartCallback, &taskManager);
+Task personCounterRestartTask(1000 * 2, TASK_FOREVER, &personCounterRestartCallback, &taskManager);
 
 void MQTTLoopCallback();
 Task MQTTLoopTask(1000 * 2, TASK_FOREVER, &MQTTLoopCallback, &taskManager, true);
@@ -160,8 +171,11 @@ Task MQTTLoopTask(1000 * 2, TASK_FOREVER, &MQTTLoopCallback, &taskManager, true)
 //void IRSendCallback();
 //Task IRSendTask(300, TASK_FOREVER, &IRSendCallback, &taskManager, false);
 
+void updateTimeClientCallback();
+Task updateTimeClientTask(1000 * 30, TASK_FOREVER, &updateTimeClientCallback, &taskManager, true);
+
 void nextConditionerStateCallback();
-Task nextConditionerStateTask(1000 * 10, TASK_FOREVER, &nextConditionerStateCallback, &taskManager, true);
+Task nextConditionerStateTask(1000 * 8, TASK_FOREVER, &nextConditionerStateCallback, &taskManager, true);
 
 void sendConfigurationCallback();
 Task sendConfigurationTask(1000 *  60, TASK_FOREVER, &sendConfigurationCallback, &taskManager, true);
@@ -219,7 +233,7 @@ void ICACHE_RAM_ATTR personCounterOutCallback() {
 }
 
 
-byte calculateNextPersonCounterStateLog = true;
+byte calculateNextPersonCounterStateLog = false;
 void calculateNextPersonCounterState() {
   if (PERSON_COUNTER_STATE == PERSON_COUNTER_JOIN) {
     personCount += 1;
@@ -244,7 +258,7 @@ void startPersonCounterCountDown(int mill) {
   personCounterRestartTask.setInterval(mill);
 }
 
-byte personCounterRestartCallbackLog = true;
+byte personCounterRestartCallbackLog = false;
 void personCounterRestartCallback() {
   PERSON_COUNTER_STATE = PERSON_COUNTER_IDLE;
   personCounterRestartTask.disable();
@@ -271,7 +285,7 @@ void sendPersonCounterCallback() {
  * MQTTTask and functions
  */
 
-const byte MQTTLoopCallbackLog = true;
+const byte MQTTLoopCallbackLog = false;
 void MQTTLoopCallback() {
   if (!client.connected()) {
     reconnect();
@@ -280,7 +294,7 @@ void MQTTLoopCallback() {
 }
 
 
-byte MQTTReceivedMessageLog = true;
+byte MQTTReceivedMessageLog = false;
 void MQTTReceivedMessage(char* topic, byte* payload, unsigned int length) {
 
   if (strcmp(roomSetHumidexTargetTopic, topic) == 0)
@@ -377,30 +391,65 @@ void IRSendCallback() {
 
 
 /*
+ * NTPTask and functions 
+ */
+
+byte updateTimeClientCallbackLog = false;
+void updateTimeClientCallback() {
+  timeClient.update();
+  currentHour = timeClient.getHours();
+  currentMinute = timeClient.getMinutes();
+  
+  if (updateTimeClientCallbackLog) {
+
+    //Serial.print(daysOfTheWeek[timeClient.getDay()]);
+    //Serial.print(", ");
+    Serial.print(currentHour);
+    Serial.print(":");
+    Serial.print(currentMinute);
+    Serial.print(":");
+    Serial.println(timeClient.getSeconds());
+  }
+}
+ 
+/*
  * configurationTask and functions
  */
 
-void nextConditionerStateCallback() {
-  int nextState;
-  if (currentPersonCounter > 0) {
-    if (currentOutHumidex > 33 && currentRoomHumidex > 31)
-      nextState = POWER_ON;
-    else
-      nextState = POWER_OFF;
-  }
-  else {
-    nextState = POWER_OFF;
-  }
-  sendConditionerSignal(nextState);
-}
-
-void sendConditionerSignal(nextState) {
-  if (nextState != CURRENT_STATE) {
+byte sendConditionerSignalLog = true;
+void sendConditionerSignal(int nextState) {
+  if (nextState != CONDITIONER_STATE) {
     switch(nextState) {
-      case POWER_OFF: irsend.sendNEC(POWER_OFF, 28); break;
-      case POWER_ON: irsend.sendNEC(POWER_ON, 28); break;
+      case POWER_OFF_STATE: irsend.sendNEC(POWER_OFF_SIGNAL, 28); break;
+      case POWER_ON_STATE: irsend.sendNEC(POWER_ON_SIGNAL, 28); break;
+    }
+    CONDITIONER_STATE = nextState;
+    if (sendConditionerSignalLog) {
+      Serial.println("Sto inviando un segnale");
+      Serial.println(nextState);
     }
   }
+}
+
+byte nextConditionerStateCallbackLog = true;
+void nextConditionerStateCallback() {
+  int nextState;
+  if (currentPersonCounter > 0 && currentHour > 13) {
+    if (currentOutHumidex > 33 && currentRoomHumidex > 31)
+      nextState = POWER_ON_STATE;
+    else
+      nextState = POWER_OFF_STATE;
+  }
+  else {
+    nextState = POWER_OFF_STATE;
+  }
+  nextState = !CONDITIONER_STATE;
+  if (nextConditionerStateCallback) { 
+    Serial.print("Next state: ");
+    Serial.println(nextState);
+  }
+  sendConditionerSignal(nextState);
+  
 }
 
 void sendConfigurationCallback() {
@@ -448,6 +497,7 @@ void setup_wifi() {
 void initPin() {
   pinMode(PERSON_IN_PIN, INPUT);
   pinMode(PERSON_OUT_PIN, INPUT);  
+ 
 
   attachInterrupt(digitalPinToInterrupt(PERSON_IN_PIN), personCounterInCallback, RISING);
   attachInterrupt(digitalPinToInterrupt(PERSON_OUT_PIN), personCounterOutCallback, RISING);
@@ -463,6 +513,9 @@ void initObjects() {
   irrecv.enableIRIn();
   
   irsend.begin();
+
+  timeClient.begin();
+
 }
 
 void setup() {
