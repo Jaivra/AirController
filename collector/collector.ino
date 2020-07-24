@@ -27,7 +27,6 @@ static const uint8_t D9   = 3;
 static const uint8_t D10  = 1;
 
 
-
 /*
  * WIFI/MQTT settings
  */
@@ -37,7 +36,6 @@ const char* password = "MyEsp8266_&19!";
 const char* mqtt_server = "mqtt.atrent.it";
 
 WiFiClient espClient;
-
 
 
 /*
@@ -77,6 +75,7 @@ float outHumidity;
 float outHeatIndex;
 float outHumidex;
 
+
 /*
  * Other var
  */
@@ -88,6 +87,7 @@ HTTPClient http;
 /*
  * Task declaration
  */
+ 
 void testCallback();
 Task testTask(1000, TASK_FOREVER, &testCallback, &taskManager, false);
 
@@ -111,10 +111,11 @@ Task MQTTLoopTask(1000 * 5, TASK_FOREVER, &MQTTLoopCallback, &taskManager, true)
  * 
  */
 
-
 void testCallback() {
   
 }
+
+
 /*
  * TemperatureTask and functions
  */
@@ -141,6 +142,7 @@ void measureRoomTemperatureCallback() {
     
   }
 }
+
 
 byte measureSimulateOutTemperatureCallbackLog = false;
 void measureSimulateOutTemperatureCallback() {
@@ -186,6 +188,7 @@ void measureSimulateOutTemperatureCallback() {
  
   http.end();   //Close connection
 }
+
 
 // https://create.arduino.cc/projecthub/somenjana/sensing-the-comfort-level-of-atmosphere-using-humidex-3ee0df
 float calcHumidex(float temperature, float humidity) {
@@ -245,6 +248,7 @@ void sendOutTemperatureCallback() {
   }
 }
 
+
 const byte MQTTLoopCallbackLog = true;
 void MQTTLoopCallback() {
   if (!client.connected()) {
@@ -252,6 +256,7 @@ void MQTTLoopCallback() {
   }
   client.loop();
 }
+
 
 void reconnect() {
   while (!client.connected()) {
@@ -320,11 +325,13 @@ void initObjects() {
   dht.begin();
 }
 
+
 void setup() {
   Serial.begin(9600);
   initPin();
   initObjects();
 }
+
 
 void loop() {
   taskManager.execute();  

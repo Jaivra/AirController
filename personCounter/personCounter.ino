@@ -13,7 +13,7 @@
 
 
 /*
- * PIN MAPPING 6
+ * PIN MAPPING 1
  */
 
 static const uint8_t D0   = 16;
@@ -86,10 +86,13 @@ void testCallback();
 Task testTask(1000, TASK_FOREVER, &testCallback, &taskManager, false);
 
 void sendPersonCounterCallback();
-Task sendPersonCounterTask(1000 * 30, TASK_FOREVER, &sendPersonCounterCallback, &taskManager, true);
+Task sendPersonCounterTask(1000 * 5, TASK_FOREVER, &sendPersonCounterCallback, &taskManager, true);
 
 void personCounterRestartCallback();
-Task personCounterRestartTask(1000 * 2, TASK_FOREVER, &personCounterRestartCallback, &taskManager);
+Task personCounterRestartTask(1000 * 10, TASK_FOREVER, &personCounterRestartCallback, &taskManager);
+
+void MQTTLoopCallback();
+Task MQTTLoopTask(1000 * 5, TASK_FOREVER, &MQTTLoopCallback, &taskManager, true);
 
 
 /*
@@ -99,7 +102,6 @@ Task personCounterRestartTask(1000 * 2, TASK_FOREVER, &personCounterRestartCallb
 void testCallback() {
   
 }
-
 
 
 /*
@@ -115,7 +117,7 @@ void ICACHE_RAM_ATTR personCounterInCallback() {
     PERSON_COUNTER_STATE = PERSON_COUNTER_JOIN;
   else {
     PERSON_COUNTER_STATE = PERSON_COUNTER_IN_EXCITED;
-    startPersonCounterCountDown(1000 * 2);
+    startPersonCounterCountDown(1000 * 4);
   }
   
   if (personCounterInCallbackLog) {
@@ -138,7 +140,7 @@ void ICACHE_RAM_ATTR personCounterOutCallback() {
     PERSON_COUNTER_STATE = PERSON_COUNTER_EXIT;
   else {
     PERSON_COUNTER_STATE = PERSON_COUNTER_OUT_EXCITED;
-    startPersonCounterCountDown(1000 * 2);
+    startPersonCounterCountDown(1000 * 2.5);
   }
   
   if (personCounterOutCallbackLog) {
@@ -152,17 +154,17 @@ void ICACHE_RAM_ATTR personCounterOutCallback() {
 }
 
 
-byte calculateNextPersonCounterStateLog = false;
+byte calculateNextPersonCounterStateLog = true;
 void calculateNextPersonCounterState() {
   if (PERSON_COUNTER_STATE == PERSON_COUNTER_JOIN) {
     personCount += 1;
     PERSON_COUNTER_STATE = PERSON_COUNTER_IDLE;
-    startPersonCounterCountDown(1000 * 10);
+    startPersonCounterCountDown(1000 * 7);
   }
   else if (PERSON_COUNTER_STATE == PERSON_COUNTER_EXIT) {
     personCount -= 1;
     PERSON_COUNTER_STATE = PERSON_COUNTER_IDLE;
-    startPersonCounterCountDown(1000 * 10);    
+    startPersonCounterCountDown(1000 * 7);    
   }
 
   if (calculateNextPersonCounterStateLog) {
@@ -171,13 +173,15 @@ void calculateNextPersonCounterState() {
   } 
 }
 
+
 void startPersonCounterCountDown(int mill) {
   personCounterRestartTask.disable();
   personCounterRestartTask.enable();
   personCounterRestartTask.setInterval(mill);
 }
 
-byte personCounterRestartCallbackLog = false;
+
+byte personCounterRestartCallbackLog = true;
 void personCounterRestartCallback() {
   PERSON_COUNTER_STATE = PERSON_COUNTER_IDLE;
   personCounterRestartTask.disable();
@@ -262,7 +266,6 @@ void reconnect() {
 }
 
 
-
 /*
  * INIT
  */
@@ -289,6 +292,7 @@ void setup_wifi() {
   Serial.println(WiFi.localIP());
 }
 
+
 void initPin() {
   pinMode(PERSON_IN_PIN, INPUT);
   pinMode(PERSON_OUT_PIN, INPUT);  
@@ -298,17 +302,20 @@ void initPin() {
 
 }
 
+
 void initObjects() {
   setup_wifi();
   
   client.setServer(mqtt_server, 1883);
 }
 
+
 void setup() {
   Serial.begin(9600);
   initPin();
   initObjects();
 }
+
 
 void loop() {
   taskManager.execute();  
