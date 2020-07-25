@@ -60,7 +60,7 @@ const char* outHumidexTopic = "valerio/out/humidex";
 
 const char* personCounterTopic = "valerio/room/personCounter";
 
-const char* configurationTopic = "valerio/configuration";
+const char* configurationHumidexTopic = "valerio/configuration/humidexTarget";
 
 PubSubClient client(espClient);
 
@@ -152,8 +152,8 @@ Task updateTimeClientTask(1000 * 30, TASK_FOREVER, &updateTimeClientCallback, &t
 void nextConditionerStateCallback();
 Task nextConditionerStateTask(1000 * 20, TASK_FOREVER, &nextConditionerStateCallback, &taskManager, true);
 
-void sendConfigurationCallback();
-Task sendConfigurationTask(1000 *  60, TASK_FOREVER, &sendConfigurationCallback, &taskManager, true);
+void sendConditionerStateCallback();
+Task sendConditionerStateTask(1000 *  60, TASK_FOREVER, &sendConditionerStateCallback, &taskManager, true);
 
 void controlStateConditionerCallback();
 Task controlStateConditionerTask(1000 * 10, TASK_FOREVER, &controlStateConditionerCallback, &taskManager, true);
@@ -369,27 +369,22 @@ void nextConditionerStateCallback() {
 
 
 void controlStateConditionerCallback() {
-  CONDITIONER_STATE = analogRead(PHOTO_RESISTOR_PIN) > 150;
-
   char data[8];  
-  dtostrf(CONDITIONER_STATE, 6, 2, data);
-  client.publish(roomConditionerStateTopic, data);
+  dtostrf(humidexTarget, 6, 2, data);
+  client.publish(configurationHumidexTopic, data);
   
 }
 
-void sendConfigurationCallback() {
-  String configuration = "";
-
-  configuration.concat("{");
+void sendConditionerStateCallback() {
+  char data[8];
   
-  configuration.concat("humidexTarget:");
-  configuration.concat(String(humidexTarget));
+  dtostrf(roomTemperature, 6, 2, data);
+  client.publish(roomTemperatureTopic, data);
 
-  configuration.concat("}");
+  dtostrf(roomTemperature, 6, 2, data);
+  client.publish(roomConditionerStateTopic, data);
 
-  char data[configuration.length() + 1];
-  configuration.toCharArray(data, configuration.length() + 1);
-  client.publish(configurationTopic, data);
+  
 }
 
  
