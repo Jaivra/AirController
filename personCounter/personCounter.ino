@@ -66,7 +66,7 @@ int PERSON_COUNTER_STATE = PERSON_COUNTER_IDLE;
 const char* connectionTopic = "valerio/connection/personCounter";
 
 const char* personCounterTopic = "valerio/room/personCounter";
-const char* setPersonCounterTopic = "valerio/room/setPersonCounter";
+const char* setPersonCounterTopic = "valerio/config/setPersonCounter";
 
 PubSubClient client(espClient);
 
@@ -86,7 +86,7 @@ void testCallback();
 Task testTask(1000, TASK_FOREVER, &testCallback, &taskManager, false);
 
 void sendPersonCounterCallback();
-Task sendPersonCounterTask(1000 * 5, TASK_FOREVER, &sendPersonCounterCallback, &taskManager, true);
+Task sendPersonCounterTask(1000 * 30, TASK_FOREVER, &sendPersonCounterCallback, &taskManager, true);
 
 void personCounterRestartCallback();
 Task personCounterRestartTask(1000 * 10, TASK_FOREVER, &personCounterRestartCallback, &taskManager);
@@ -159,12 +159,12 @@ void calculateNextPersonCounterState() {
   if (PERSON_COUNTER_STATE == PERSON_COUNTER_JOIN) {
     personCount += 1;
     PERSON_COUNTER_STATE = PERSON_COUNTER_IDLE;
-    startPersonCounterCountDown(1000 * 7);
+    startPersonCounterCountDown(1000 * 3);
   }
   else if (PERSON_COUNTER_STATE == PERSON_COUNTER_EXIT) {
     personCount -= 1;
     PERSON_COUNTER_STATE = PERSON_COUNTER_IDLE;
-    startPersonCounterCountDown(1000 * 7);    
+    startPersonCounterCountDown(1000 * 3);    
   }
 
   if (calculateNextPersonCounterStateLog) {

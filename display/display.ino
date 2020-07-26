@@ -37,8 +37,8 @@ const char* roomTemperatureTopic = "valerio/room/temperature";
 const char* roomHumidityTopic = "valerio/room/humidity";
 const char* roomHeatIndexTopic = "valerio/room/heatIndex";
 const char* roomHumidexTopic = "valerio/room/humidex";
-const char* roomSetHumidexTargetTopic = "valerio/room/setHumidexTarget";
 const char* roomConditionerStateTopic = "valerio/room/conditionerState";
+const char* roomHumidexTargetTopic = "valerio/room/humidexTarget";
 
 const char* outTemperatureTopic = "valerio/out/temperature";
 const char* outHumidityTopic = "valerio/out/humidity";
@@ -46,8 +46,6 @@ const char* outHeatIndexTopic = "valerio/out/heatIndex";
 const char* outHumidexTopic = "valerio/out/humidex";
 
 const char* personCounterTopic = "valerio/room/personCounter";
-
-const char* configurationHumidexTopic = "valerio/configuration/humidexTarget";
 
 
 PubSubClient client(espClient);
@@ -100,11 +98,8 @@ void setup_wifi() {
 
 byte MQTTReceivedMessageLog = false;
 void MQTTReceivedMessage(char* topic, byte* payload, unsigned int length) {
-
-  if (strcmp(roomSetHumidexTargetTopic, topic) == 0)
-    humidexTarget = atof((char*)payload);
     
-  else if (strcmp(roomTemperatureTopic, topic) == 0)
+  if (strcmp(roomTemperatureTopic, topic) == 0)
     currentRoomTemperature = atof((char*)payload);
   else if (strcmp(roomHumidityTopic, topic) == 0)
     currentRoomHumidity = atof((char*)payload);
@@ -122,7 +117,7 @@ void MQTTReceivedMessage(char* topic, byte* payload, unsigned int length) {
   else if (strcmp(outHumidexTopic, topic) == 0)
     currentOutHumidex = atof((char*)payload);
     
-  else if (strcmp(configurationHumidexTopic, topic) == 0)
+  else if (strcmp(roomHumidexTargetTopic, topic) == 0)
     humidexTarget = atof((char*)payload);
   else if (strcmp(roomConditionerStateTopic, topic) == 0)
     conditionerState = atof((char*)payload);

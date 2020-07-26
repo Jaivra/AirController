@@ -50,8 +50,8 @@ const char* roomTemperatureTopic = "valerio/room/temperature";
 const char* roomHumidityTopic = "valerio/room/humidity";
 const char* roomHeatIndexTopic = "valerio/room/heatIndex";
 const char* roomHumidexTopic = "valerio/room/humidex";
-const char* roomSetHumidexTargetTopic = "valerio/room/setHumidexTarget";
 const char* roomConditionerStateTopic = "valerio/room/conditionerState";
+const char* roomHumidexTargetTopic = "valerio/room/humidexTarget";
 
 const char* outTemperatureTopic = "valerio/out/temperature";
 const char* outHumidityTopic = "valerio/out/humidity";
@@ -60,7 +60,7 @@ const char* outHumidexTopic = "valerio/out/humidex";
 
 const char* personCounterTopic = "valerio/room/personCounter";
 
-const char* configurationHumidexTopic = "valerio/configuration/humidexTarget";
+const char* setHumidexTargetTopic = "valerio/room/setHumidexTarget";
 
 PubSubClient client(espClient);
 
@@ -153,10 +153,7 @@ void nextConditionerStateCallback();
 Task nextConditionerStateTask(1000 * 20, TASK_FOREVER, &nextConditionerStateCallback, &taskManager, true);
 
 void sendConditionerStateCallback();
-Task sendConditionerStateTask(1000 *  60, TASK_FOREVER, &sendConditionerStateCallback, &taskManager, true);
-
-void controlStateConditionerCallback();
-Task controlStateConditionerTask(1000 * 10, TASK_FOREVER, &controlStateConditionerCallback, &taskManager, true);
+Task sendConditionerStateTask(1000 *  10, TASK_FOREVER, &sendConditionerStateCallback, &taskManager, true);
 
 /*
  * testTask
@@ -182,11 +179,8 @@ void MQTTLoopCallback() {
 
 byte MQTTReceivedMessageLog = false;
 void MQTTReceivedMessage(char* topic, byte* payload, unsigned int length) {
-
-  if (strcmp(roomSetHumidexTargetTopic, topic) == 0)
-    humidexTarget = atof((char*)payload);
-    
-  else if (strcmp(roomTemperatureTopic, topic) == 0)
+   
+  if (strcmp(roomTemperatureTopic, topic) == 0)
     currentRoomTemperature = atof((char*)payload);
   else if (strcmp(roomHumidityTopic, topic) == 0)
     currentRoomHumidity = atof((char*)payload);
@@ -206,8 +200,11 @@ void MQTTReceivedMessage(char* topic, byte* payload, unsigned int length) {
 
   else if (strcmp(personCounterTopic, topic) == 0)
     currentPersonCounter = atof((char*)payload);
- 
 
+  else if (strcmp(setHumidexTargetTopic, topic) == 0)
+    humidexTarget = atof((char*)payload);
+
+  
   if (MQTTReceivedMessageLog) {
     Serial.print("Message arrived in topic: ");
     Serial.println(topic);
@@ -368,23 +365,14 @@ void nextConditionerStateCallback() {
 }
 
 
-void controlStateConditionerCallback() {
-  char data[8];  
-  dtostrf(humidexTarget, 6, 2, data);
-  client.publish(configurationHumidexTopic, data);
-  
-}
-
 void sendConditionerStateCallback() {
   char data[8];
   
-  dtostrf(roomTemperature, 6, 2, data);
-  client.publish(roomTemperatureTopic, data);
+  dtostrf(humidexTarget, 6, 2, data);
+  client.publish(roomHumidexTargetTopic, data);
 
-  dtostrf(roomTemperature, 6, 2, data);
+  dtostrf(CONDITIONER_STATE, 6, 2, data);
   client.publish(roomConditionerStateTopic, data);
-
-  
 }
 
  
