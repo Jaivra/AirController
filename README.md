@@ -14,7 +14,8 @@ il controller si basa su diversi fattori:
 
 Altri componenti utilizzati:
 - 2 diodi a infrarossi a LED (emissione e ricezione).
-- Display che mostra la temperatura interna.
+- ESP32 con Display per mostrare i parametri la temperatura interna.
+- 3 ESP8266
 
 Tutti i dati (temperatura, unimdità, indice di calore, conta persone ecc...) saranno inviati ad un server MQTT per la sincronizzazione dei vari ESP8266 e per la raccolta dei dati, per stabilire (attraverso analisi) se effettivamente c'è un risparmio di corrente e di salute.
 
