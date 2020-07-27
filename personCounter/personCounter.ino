@@ -92,7 +92,7 @@ void personCounterRestartCallback();
 Task personCounterRestartTask(1000 * 10, TASK_FOREVER, &personCounterRestartCallback, &taskManager);
 
 void MQTTLoopCallback();
-Task MQTTLoopTask(1000 * 5, TASK_FOREVER, &MQTTLoopCallback, &taskManager, true);
+Task MQTTLoopTask(1000 * 2, TASK_FOREVER, &MQTTLoopCallback, &taskManager, true);
 
 
 /*

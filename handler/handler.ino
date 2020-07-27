@@ -60,7 +60,7 @@ const char* outHumidexTopic = "valerio/out/humidex";
 
 const char* personCounterTopic = "valerio/room/personCounter";
 
-const char* setHumidexTargetTopic = "valerio/room/setHumidexTarget";
+const char* setHumidexTargetTopic = "valerio/config/setHumidexTarget";
 
 PubSubClient client(espClient);
 
@@ -105,7 +105,7 @@ NTPClient timeClient(ntpUDP, "pool.ntp.org", utcOffsetInSeconds);
  * NextState settings
  */
  
-float humidexTarget = 26.5;
+float humidexTarget = 27.0;
 
 float currentRoomTemperature = 0;
 float currentRoomHumidity = 0;
@@ -126,7 +126,7 @@ const int POWER_ON_STATE = 1;
 
 int CONDITIONER_STATE = POWER_OFF_STATE;
 
-
+const float ABSOLUTE_HUMIDEX_ERROR = 1.25;
 /*
  * Other var
  */
@@ -150,10 +150,13 @@ void updateTimeClientCallback();
 Task updateTimeClientTask(1000 * 30, TASK_FOREVER, &updateTimeClientCallback, &taskManager, true);
 
 void nextConditionerStateCallback();
-Task nextConditionerStateTask(1000 * 20, TASK_FOREVER, &nextConditionerStateCallback, &taskManager, true);
+Task nextConditionerStateTask(1000 * 30, TASK_FOREVER, &nextConditionerStateCallback, &taskManager, true);
+
+void updateConditionerStateCallback();
+Task updateConditionerStateTask(1000 * 20, TASK_FOREVER, &updateConditionerStateCallback, &taskManager, true);
 
 void sendConditionerStateCallback();
-Task sendConditionerStateTask(1000 *  10, TASK_FOREVER, &sendConditionerStateCallback, &taskManager, true);
+Task sendConditionerStateTask(1000 *  30, TASK_FOREVER, &sendConditionerStateCallback, &taskManager, true);
 
 /*
  * testTask
@@ -303,56 +306,72 @@ void updateTimeClientCallback() {
 byte sendConditionerSignalLog = true;
 byte sendConditionerSignal(int nextState) {
   int action;
-  if (nextState != CONDITIONER_STATE) {
-    switch(nextState) {
-      case POWER_OFF_STATE: action = POWER_OFF_SIGNAL; break;
-      case POWER_ON_STATE: action = POWER_ON_SIGNAL; break;
-    }
-    irsend.sendNEC(action, 28);
-    if (sendConditionerSignalLog) {
-      Serial.println("Sto inviando un segnale");
-      Serial.println(nextState);
-    }
+  
+  switch(nextState) {
+    case POWER_OFF_STATE: action = POWER_OFF_SIGNAL; break;
+    case POWER_ON_STATE: action = POWER_ON_SIGNAL; break;
+  }
+  irsend.sendNEC(action, 28);
+  if (sendConditionerSignalLog) {
+    Serial.println("Sto inviando un segnale");
+    Serial.println(nextState);
   }
 }
 
-byte hasAllDataLog = false;
+byte hasAllDataLog = true;
 byte hasAllData() {
-  if (hasAllData) {
+  if (hasAllDataLog) {
     Serial.print("humidexTarget) ");Serial.println(humidexTarget > 0);Serial.print("currentRoomTemperature) ");Serial.println(currentRoomTemperature > 0);
     Serial.print("currentRoomHumidity) ");Serial.println(currentRoomHumidity > 0);Serial.print("currentRoomHumidex) ");Serial.println(currentRoomHumidex > 0);
     Serial.print("currentOutTemperature) ");Serial.println(currentOutTemperature > 0);Serial.print("currentOutHumidity) ");Serial.println(currentOutHumidity > 0);
-    Serial.print("currentOutHumidex) ");Serial.println(currentOutHumidex > 0);Serial.print("currentPersonCounter) ");Serial.println(currentPersonCounter > 0);
+    Serial.print("currentOutHumidex) ");Serial.println(currentOutHumidex > 0);Serial.print("currentPersonCounter) ");Serial.println(currentPersonCounter > -1);
   }
   return humidexTarget > 0 && currentRoomTemperature > 0 && currentRoomHumidity > 0 && 
   currentRoomHumidex > 0 && currentOutTemperature > 0 && currentOutHumidity > 0 && currentOutHumidex > 0 && currentPersonCounter > -1; 
 }
 
 
+byte updateConditionerStateCallbackLog = false;
+void updateConditionerStateCallback() {
+  CONDITIONER_STATE = analogRead(PHOTO_RESISTOR_PIN) > 200;
+}
+
 // CORE
 byte nextConditionerStateCallbackLog = true;
 void nextConditionerStateCallback() {
   if (!hasAllData()){
-    Serial.println("MISS DATA");
+    if (nextConditionerStateCallbackLog)
+      Serial.println("MISS DATA");
     return;
   }
-  
+
+  if (nextConditionerStateCallbackLog) {
+    Serial.print("humidexTarget) ");Serial.println(humidexTarget);Serial.print("currentRoomTemperature) ");Serial.println(currentRoomTemperature);
+    Serial.print("currentRoomHumidity) ");Serial.println(currentRoomHumidity);Serial.print("currentRoomHumidex) ");Serial.println(currentRoomHumidex);
+    Serial.print("currentOutTemperature) ");Serial.println(currentOutTemperature);Serial.print("currentOutHumidity) ");Serial.println(currentOutHumidity);
+    Serial.print("currentOutHumidex) ");Serial.println(currentOutHumidex);Serial.print("currentPersonCounter) ");Serial.println(currentPersonCounter);
+    Serial.print("conditionerState) ");Serial.println(CONDITIONER_STATE);Serial.print("currentHour) ");Serial.println(currentHour);
+  }
   int nextState;
   if (CONDITIONER_STATE == POWER_OFF_STATE) {
     if (currentPersonCounter > 0 && (currentHour > 13 || currentHour < 10)) {
-      if (currentOutHumidex > 30 && currentRoomHumidex > humidexTarget + 2)
+      if (currentOutHumidex > 30 && currentRoomHumidex > humidexTarget + ABSOLUTE_HUMIDEX_ERROR)
         nextState = POWER_ON_STATE;
       else
         nextState = POWER_OFF_STATE;
     }
+    else
+      nextState = POWER_OFF_STATE;
   }
   else {
     if (currentPersonCounter > 0 && (currentHour > 13 || currentHour < 10)) {
-      if (currentOutHumidex > 30 && currentRoomHumidex > humidexTarget - 2)
+      if (currentOutHumidex > 30 && currentRoomHumidex > humidexTarget - ABSOLUTE_HUMIDEX_ERROR)
         nextState = POWER_ON_STATE;
       else
         nextState = POWER_OFF_STATE;
     }
+    else
+      nextState = POWER_OFF_STATE;
   }
 
 
@@ -360,8 +379,9 @@ void nextConditionerStateCallback() {
     Serial.print("Next state: ");
     Serial.println(nextState);
   }
-  
-  sendConditionerSignal(nextState);  
+
+  if (CONDITIONER_STATE != nextState) 
+    sendConditionerSignal(nextState);
 }
 
 
