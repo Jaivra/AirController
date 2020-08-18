@@ -55,13 +55,15 @@ def on_connect(client, userdata, flags, rc):
 
 
 def on_message(client, userdata, msg):
-    global room_measure, out_measure, row_count, personCount, humidexTarget
+    global room_measure, out_measure, row_count, personCount, humidexTarget, conditionerState
 
     topic = msg.topic
     if "valerio/room/personCounter" in topic:
         personCount = float(msg.payload.decode("utf-8"))
-    elif "valerio/configuration" in topic:
+    elif "valerio/room/humidexTarget" in topic:
         humidexTarget = float(msg.payload.decode("utf-8"))
+    elif "valerio/room/conditionerState" in topic:
+        conditionerState = float(msg.payload.decode("utf-8"))
     elif room_measure.has_sub_topic(topic):
         room_measure.update_measure(topic.split('/')[-1], float(msg.payload.decode("utf-8")))
     elif out_measure.has_sub_topic(topic):
@@ -72,7 +74,7 @@ def on_message(client, userdata, msg):
             row_count += 1
             dt = datetime.datetime.now()
             now = dt.strftime("%d/%m/%Y,%H:%M")
-            row = "{},{},{},{},{}\n".format(now, room_measure.to_csv(), out_measure.to_csv(), personCount, humidexTarget)
+            row = "{},{},{},{},{},{}\n".format(now, room_measure.to_csv(), out_measure.to_csv(), personCount, humidexTarget, conditionerState)
             #print("****", row)
             f.write(row)
             f.flush()
@@ -82,6 +84,7 @@ f = open("data.csv", "a")
 
 personCount = 0
 humidexTarget = 0
+conditionerState = 0
 out_measure = Measure("valerio/out")
 room_measure = Measure("valerio/room")
 
