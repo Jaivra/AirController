@@ -19,7 +19,7 @@ Tutti i dati (temperatura, unimdità, indice di calore, conta persone ecc...) sa
 *Licenza Scelta*: GPLv3
 
 *Senza l'utilizzo di AirController*
-![alt text](analysis/images/with.png)
+![alt text](analysis/images/without.png)
 
 *Con l'utilizzo di AirController*
 ![alt text](analysis/images/with.png)
