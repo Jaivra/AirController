@@ -26,3 +26,5 @@ Tutti i dati (temperatura, unimdità, indice di calore, conta persone ecc...) sa
 
 *Data presentazione*: fine Luglio
 
+
+![alt text](analysis/images/with.png)
