@@ -1,10 +1,6 @@
 ### AirController
 
-*Nome Progetto*: AirController
-
-*Autore*: Valerio Cislaghi
-
-*Descrizione*: AirController è un sistema intelligente di controllo automatico per condizionatori che hanno rotto (o non hanno) un sensore di temperatura/umidità (quindi portando sempre la temperatura/umidità a livelli minimi possibili).
+AirController è un sistema intelligente di controllo automatico per condizionatori che hanno rotto (o non hanno) un sensore di temperatura/umidità (quindi portando sempre la temperatura/umidità a livelli minimi possibili).
 L'obbiettivo è gestire il condizionatore attraverso segnali inviati tramite infrarossi.
 AirController riceve in input un indice di calore come target (HUMIDEX) e il suo obbiettivo sarà mantenere costante questo indice.
 il controller si basa su diversi fattori:
@@ -20,9 +16,10 @@ Altri componenti utilizzati:
 
 Tutti i dati (temperatura, unimdità, indice di calore, conta persone ecc...) saranno inviati ad un server MQTT per la sincronizzazione dei vari ESP8266 e per la raccolta dei dati, per stabilire (attraverso analisi) se effettivamente c'è un risparmio di corrente e di salute.
 
-*Link a repo*: https://github.com/Jaivra/AirController
-
 *Licenza Scelta*: GPLv3
 
-*Data presentazione*: fine Luglio
+*Senza l'utilizzo di AirController*
+![alt text](analysis/images/without.png)
 
+*Con l'utilizzo di AirController*
+![alt text](analysis/images/with.png)
