@@ -92,13 +92,13 @@ void testCallback();
 Task testTask(1000, TASK_FOREVER, &testCallback, &taskManager, false);
 
 void measureRoomTemperatureCallback();
-Task measureRoomTemperatureTask(1000 * 60, TASK_FOREVER, &measureRoomTemperatureCallback, &taskManager, true);
+Task measureRoomTemperatureTask(1000 * 50, TASK_FOREVER, &measureRoomTemperatureCallback, &taskManager, true);
 
 void sendRoomTemperatureCallback();
 Task sendRoomTemperatureTask(1000 * 60 * 2, TASK_FOREVER, &sendRoomTemperatureCallback, &taskManager, true);
 
 void measureSimulateOutTemperatureCallback();
-Task measureSimulateOutTemperatureTask(1000 * 60, TASK_FOREVER, &measureSimulateOutTemperatureCallback, &taskManager, true);
+Task measureSimulateOutTemperatureTask(1000 * 50, TASK_FOREVER, &measureSimulateOutTemperatureCallback, &taskManager, true);
 
 void sendOutTemperatureCallback();
 Task sendOutTemperatureTask(1000 * 60 * 2, TASK_FOREVER, &sendOutTemperatureCallback, &taskManager, true);

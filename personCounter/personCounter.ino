@@ -158,12 +158,12 @@ byte calculateNextPersonCounterStateLog = true;
 void calculateNextPersonCounterState() {
   if (PERSON_COUNTER_STATE == PERSON_COUNTER_JOIN) {
     personCount += 1;
-    PERSON_COUNTER_STATE = PERSON_COUNTER_IDLE;
+    PERSON_COUNTER_STATE = PERSON_COUNTER_INCREMENTED;
     startPersonCounterCountDown(1000 * 3);
   }
   else if (PERSON_COUNTER_STATE == PERSON_COUNTER_EXIT) {
     personCount -= 1;
-    PERSON_COUNTER_STATE = PERSON_COUNTER_IDLE;
+    PERSON_COUNTER_STATE = PERSON_COUNTER_INCREMENTED;
     startPersonCounterCountDown(1000 * 3);    
   }
 

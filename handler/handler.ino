@@ -127,6 +127,8 @@ const int POWER_ON_STATE = 1;
 int CONDITIONER_STATE = POWER_OFF_STATE;
 
 const float ABSOLUTE_HUMIDEX_ERROR = 1.25;
+
+
 /*
  * Other var
  */
@@ -300,8 +302,6 @@ void updateTimeClientCallback() {
 /*
  * configurationTask and functions
  */
-
-
 
 byte sendConditionerSignalLog = true;
 byte sendConditionerSignal(int nextState) {

@@ -1,20 +1,9 @@
-/*  
- Test the M5.Lcd.print() viz embedded M5.Lcd.write() function
-
- This sketch used font 2, 4, 7
-
- Make sure all the display driver and pin comnenctions are correct by
- editting the User_Setup.h file in the TFT_eSPI library folder.
-
- #########################################################################
- ###### DON'T FORGET TO UPDATE THE User_Setup.h FILE IN THE LIBRARY ######
- #########################################################################
- */
 #include <M5StickC.h>
 #include <WiFi.h>
 #include <PubSubClient.h>
 
 #define TFT_GREY 0x5AEB // New colour
+
 
 /*
  * WIFI/MQTT settings
@@ -49,6 +38,7 @@ const char* personCounterTopic = "valerio/room/personCounter";
 
 
 PubSubClient client(espClient);
+
 
 /*
  * display settings
