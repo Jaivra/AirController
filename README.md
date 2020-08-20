@@ -6,7 +6,7 @@ AirController riceve in input un indice di calore come target (HUMIDEX) e il suo
 il controller si basa su diversi fattori:
 - Temperatura/Umidità esterna (chiamate API a openWeather).
 - Temperatura/Umidità interna (DHT22/DHT11).
-- Numero di persone nella stanza (AM312), ancora da testare.
+- Numero di persone nella stanza (AM312).
 - Errore assoluto che può commettere il condizionatore.
 
 Altri componenti utilizzati:
