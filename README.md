@@ -1,6 +1,6 @@
 ### AirController
 
-AirController è un sistema intelligente di controllo automatico per condizionatori che hanno rotto (o non hanno) un sensore di temperatura/umidità (quindi portando sempre la temperatura/umidità a livelli minimi possibili).
+AirController è un sistema intelligente di controllo automatico per condizionatori che hanno rotto (o non hanno) un sensore di temperatura/umidità (quindi portano sempre la temperatura/umidità a livelli minimi possibili).
 L'obbiettivo è gestire il condizionatore attraverso segnali inviati tramite infrarossi.
 AirController riceve in input un indice di calore come target (HUMIDEX) e il suo obbiettivo sarà mantenere costante questo indice.
 il controller si basa su diversi fattori:
